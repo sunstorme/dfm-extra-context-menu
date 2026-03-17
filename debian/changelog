@@ -1,3 +1,10 @@
+dfm-tools-plugins (1.5.3-1) unstable; urgency=medium
+
+  * chore: Update version to 1.5.3-1
+  * feat(ui): add SSHFS history management and enhanced text editor
+
+ -- zhanghongyuan <zhanghongyuan@uniontech.com>  Tue, 17 Mar 2026 16:03:15 +0800
+
 dfm-tools-plugins (1.5.2-1) unstable; urgency=medium
 
   * chore: Update version to 1.5.2-1
