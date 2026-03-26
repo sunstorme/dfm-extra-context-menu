@@ -224,7 +224,7 @@ class DeepinProjectDownloader:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Deepin 项目下载器")
+        self.root.title("DFM 开发工具箱")
         self.root.geometry("1200x1000")
         self.root.minsize(1000, 700)
         
@@ -1901,7 +1901,15 @@ class DeepinProjectDownloader:
         
         # 创建Host管理界面
         self.create_host_management(host_tab)
-
+        
+        # 关于软件标签页
+        about_tab = ttk.Frame(notebook)
+        notebook.add(about_tab, text="关于软件")
+        about_tab.columnconfigure(0, weight=1)
+        about_tab.rowconfigure(0, weight=1)
+        
+        # 创建关于软件界面
+        self.create_about_tab(about_tab)
         
         # 日志区域
         log_frame = ttk.LabelFrame(main_frame, text="操作日志", padding="10", style='Title.TLabelframe')
@@ -3367,6 +3375,7 @@ read
                 self.message_queue.put(("log", "[SSHFS] [成功] SSHFS挂载验证成功"))
                 self.message_queue.put(("sshfs_status", "已挂载"))
                 self.message_queue.put(("sshfs_title", "SSHFS 配置 - 已挂载"))
+                self.message_queue.put(("progress", "stop"))  # 停止进度条
                 
                 # 启动状态检查
                 self.sshfs_status_checking = True
@@ -3375,6 +3384,7 @@ read
                 self.message_queue.put(("log", "[SSHFS] [失败] 挂载验证失败，expect脚本可能没有真正挂载成功"))
                 self.message_queue.put(("sshfs_status", "挂载失败"))
                 self.message_queue.put(("sshfs_title", "SSHFS 配置 - 挂载失败"))
+                self.message_queue.put(("progress", "stop"))  # 停止进度条
                 
         except Exception as e:
             self.message_queue.put(("log", f"[SSHFS] [错误] 验证挂载状态失败: {str(e)}"))
@@ -6065,6 +6075,253 @@ read
             height=15
         )
         self.ping_result_text.grid(row=0, column=0, sticky="nsew")
+
+    def create_about_tab(self, parent):
+        """创建关于软件tab"""
+        # 创建可滚动的内容区域
+        scroll_frame = ScrollableFrame(parent)
+        scroll_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        content_frame = scroll_frame.get_frame()
+        content_frame.columnconfigure(0, weight=1)
+        
+        # 获取版本信息
+        version_info = self.get_package_version()
+        
+        # 软件标题
+        title_label = ttk.Label(content_frame, text="DFM 开发工具箱",
+                               font=("Arial", 24, "bold"), foreground="#2c3e50")
+        title_label.grid(row=0, column=0, pady=(20, 10))
+        
+        # 软件版本
+        version_label = ttk.Label(content_frame, text=f"版本: {version_info}",
+                                 font=("Arial", 12), foreground="#7f8c8d")
+        version_label.grid(row=1, column=0, pady=(0, 20))
+        
+        # 分隔线
+        separator1 = ttk.Separator(content_frame, orient="horizontal")
+        separator1.grid(row=2, column=0, sticky="ew", pady=(10, 20))
+        
+        # 软件描述
+        desc_text = ("DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
+                    "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。")
+        desc_label = ttk.Label(content_frame, text=desc_text,
+                              font=("Arial", 11), wraplength=900, justify="center")
+        desc_label.grid(row=3, column=0, pady=(0, 20))
+        
+        # 分隔线
+        separator2 = ttk.Separator(content_frame, orient="horizontal")
+        separator2.grid(row=4, column=0, sticky="ew", pady=(10, 20))
+        
+        # 主要功能列表
+        features_frame = ttk.LabelFrame(content_frame, text="主要功能", padding="15")
+        features_frame.grid(row=5, column=0, sticky="ew", padx=50, pady=(0, 20))
+        features_frame.columnconfigure(0, weight=1)
+        
+        features = [
+            "• 项目管理：支持多项目并行下载、分支管理、依赖安装",
+            "• 软件包管理：批量安装开发工具和调试软件",
+            "• 软件源管理：图形化编辑和管理APT软件源",
+            "• Host管理：便捷的hosts文件编辑和GitHub访问优化",
+            "• SSH配置：SSH服务器配置和密钥管理",
+            "• SSHFS挂载：远程文件系统挂载和管理",
+            "• 系统信息：查看系统硬件和产品信息"
+        ]
+        
+        for i, feature in enumerate(features):
+            feature_label = ttk.Label(features_frame, text=feature,
+                                    font=("Arial", 10), justify="left")
+            feature_label.grid(row=i, column=0, sticky="w", pady=3, padx=10)
+        
+        # 分隔线
+        separator3 = ttk.Separator(content_frame, orient="horizontal")
+        separator3.grid(row=6, column=0, sticky="ew", pady=(10, 20))
+        
+        # 作者信息
+        author_label = ttk.Label(content_frame, text="作者: zhanghongyuan",
+                                font=("Arial", 11, "bold"), foreground="#2c3e50")
+        author_label.grid(row=7, column=0, pady=(0, 5))
+        
+        # 邮箱信息
+        email_label = ttk.Label(content_frame, text="邮箱: zhanghongyuan@uniontech.com",
+                               font=("Arial", 10), foreground="#7f8c8d")
+        email_label.grid(row=9, column=0, pady=(0, 20))
+        
+        # 分隔线
+        separator4 = ttk.Separator(content_frame, orient="horizontal")
+        separator4.grid(row=10, column=0, sticky="ew", pady=(10, 20))
+        
+        # 许可证信息
+        license_label = ttk.Label(content_frame, text="许可证: GNU General Public License v3.0",
+                                 font=("Arial", 10), foreground="#7f8c8d")
+        license_label.grid(row=11, column=0, pady=(0, 5))
+        
+        # 项目地址
+        project_label = ttk.Label(content_frame, text="项目地址: https://github.com/linuxdeepin/dfm-tools",
+                                 font=("Arial", 10), foreground="#4a90e2")
+        project_label.grid(row=12, column=0, pady=(0, 20))
+        
+        # 底部说明
+        footer_text = ("感谢您使用 DFM 开发工具箱！\n"
+                      "如有问题或建议，欢迎反馈。")
+        footer_label = ttk.Label(content_frame, text=footer_text,
+                                font=("Arial", 10), foreground="#95a5a6", justify="center")
+        footer_label.grid(row=13, column=0, pady=(20, 10))
+    
+    def get_package_version(self):
+        """获取软件包版本信息"""
+        try:
+            # 步骤1: 使用dpkg -S查找启动脚本所属的包
+            script_name = "deepin-project-downloader-backen.py"
+            dpkg_result = subprocess.run(
+                ["dpkg", "-S", script_name],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            package_name = None
+            if dpkg_result.returncode == 0 and dpkg_result.stdout:
+                # 从输出中提取包名，格式: dfm-tools-integration-all: /path/to/file
+                first_line = dpkg_result.stdout.strip().split('\n')[0]
+                if ':' in first_line:
+                    package_name = first_line.split(':')[0].strip()
+                    self.log_message(f"[版本] 找到包名: {package_name}")
+            
+            if not package_name:
+                self.log_message(f"[版本] 无法通过dpkg -S找到包，使用默认包名")
+                package_name = "dfm-tools-integration-all"
+            
+            # 步骤2: 使用apt policy获取版本信息
+            apt_result = subprocess.run(
+                ["apt", "policy", package_name],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if apt_result.returncode == 0:
+                # 解析输出获取版本号，支持中文和英文格式
+                version = None
+                for line in apt_result.stdout.split('\n'):
+                    # 尝试匹配中文格式: "  已安装：1.5.3-1" 或英文格式: "  Installed: 1.5.3-1"
+                    if '已安装：' in line or 'Installed:' in line:
+                        # 使用中文冒号或英文冒号分割
+                        if '已安装：' in line:
+                            version = line.split('已安装：')[1].strip()
+                        elif 'Installed:' in line:
+                            version = line.split('Installed:')[1].strip()
+                        
+                        if version and version != '(none)':
+                            self.log_message(f"[版本] 获取到版本: {version}")
+                            return version
+                
+                return "未知版本"
+            else:
+                return "1.0.0"  # 默认版本
+                
+        except subprocess.TimeoutExpired:
+            self.log_message(f"[版本] 获取版本信息超时")
+            return "1.0.0"
+        except Exception as e:
+            self.log_message(f"[版本] 获取版本信息失败: {str(e)}")
+            return "1.0.0"  # 默认版本
+
+    def check_and_load_hosts(self):
+        about_tab.columnconfigure(0, weight=1)
+        about_tab.rowconfigure(0, weight=1)
+        
+        # 创建可滚动的内容区域
+        scroll_frame = ScrollableFrame(about_tab)
+        scroll_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        content_frame = scroll_frame.get_frame()
+        content_frame.columnconfigure(0, weight=1)
+        
+        # 软件标题
+        title_label = ttk.Label(content_frame, text="DFM 开发工具箱",
+                               font=("Arial", 20, "bold"), foreground="#2c3e50")
+        title_label.grid(row=0, column=0, pady=(20, 10))
+        
+        # 软件版本
+        version_label = ttk.Label(content_frame, text="版本: 1.0.0",
+                                 font=("Arial", 12), foreground="#7f8c8d")
+        version_label.grid(row=1, column=0, pady=(0, 20))
+        
+        # 分隔线
+        separator1 = ttk.Separator(content_frame, orient="horizontal")
+        separator1.grid(row=2, column=0, sticky="ew", pady=(10, 20))
+        
+        # 软件描述
+        desc_text = ("DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
+                    "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。")
+        desc_label = ttk.Label(content_frame, text=desc_text,
+                              font=("Arial", 11), wraplength=800, justify="center")
+        desc_label.grid(row=3, column=0, pady=(0, 20))
+        
+        # 分隔线
+        separator2 = ttk.Separator(content_frame, orient="horizontal")
+        separator2.grid(row=4, column=0, sticky="ew", pady=(10, 20))
+        
+        # 主要功能列表
+        features_frame = ttk.LabelFrame(content_frame, text="主要功能", padding="15")
+        features_frame.grid(row=5, column=0, sticky="ew", padx=50, pady=(0, 20))
+        features_frame.columnconfigure(0, weight=1)
+        
+        features = [
+            "• 项目管理：支持多项目并行下载、分支管理、依赖安装",
+            "• 软件包管理：批量安装开发工具和调试软件",
+            "• 软件源管理：图形化编辑和管理APT软件源",
+            "• Host管理：便捷的hosts文件编辑和GitHub访问优化",
+            "• SSH配置：SSH服务器配置和密钥管理",
+            "• SSHFS挂载：远程文件系统挂载和管理",
+            "• 系统信息：查看系统硬件和产品信息"
+        ]
+        
+        for i, feature in enumerate(features):
+            feature_label = ttk.Label(features_frame, text=feature,
+                                    font=("Arial", 10), justify="left")
+            feature_label.grid(row=i, column=0, sticky="w", pady=3, padx=10)
+        
+        # 分隔线
+        separator3 = ttk.Separator(content_frame, orient="horizontal")
+        separator3.grid(row=6, column=0, sticky="ew", pady=(10, 20))
+        
+        # 作者信息
+        author_label = ttk.Label(content_frame, text="作者: zhanghongyuan",
+                                font=("Arial", 11, "bold"), foreground="#2c3e50")
+        author_label.grid(row=7, column=0, pady=(0, 5))
+        
+        # 公司信息
+        company_label = ttk.Label(content_frame, text="公司: 统信软件技术有限公司",
+                                 font=("Arial", 10), foreground="#7f8c8d")
+        company_label.grid(row=8, column=0, pady=(0, 5))
+        
+        # 邮箱信息
+        email_label = ttk.Label(content_frame, text="邮箱: zhanghongyuan@uniontech.com",
+                               font=("Arial", 10), foreground="#7f8c8d")
+        email_label.grid(row=9, column=0, pady=(0, 20))
+        
+        # 分隔线
+        separator4 = ttk.Separator(content_frame, orient="horizontal")
+        separator4.grid(row=10, column=0, sticky="ew", pady=(10, 20))
+        
+        # 许可证信息
+        license_label = ttk.Label(content_frame, text="许可证: GNU General Public License v3.0",
+                                 font=("Arial", 10), foreground="#7f8c8d")
+        license_label.grid(row=11, column=0, pady=(0, 5))
+        
+        # 项目地址
+        project_label = ttk.Label(content_frame, text="项目地址: https://gitee.com/sunstom/dfm-tools",
+                                 font=("Arial", 10), foreground="#4a90e2")
+        project_label.grid(row=12, column=0, pady=(0, 20))
+        
+        # 底部说明
+        footer_text = ("感谢您使用 DFM 开发工具箱！\n"
+                      "如有问题或建议，欢迎反馈。")
+        footer_label = ttk.Label(content_frame, text=footer_text,
+                                font=("Arial", 10), foreground="#95a5a6", justify="center")
+        footer_label.grid(row=13, column=0, pady=(20, 10))
 
     def check_and_load_hosts(self):
         """检查并加载hosts文件"""
