@@ -1,19 +1,413 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+DFM 开发工具箱 - Deepin Project Downloader Backend
+
+这是一个专为深度开发者设计的集成开发工具，提供项目管理、软件包管理、
+源码管理、SSH配置、Host管理等多项功能。
+
+Author: zhanghongyuan
+Email: zhanghongyuan@uniontech.com
+License: GNU General Public License v3.0
+"""
+
+import concurrent.futures
+import glob
+import json
+import os
+import queue
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+from urllib.parse import quote, urlunparse, urlparse
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import subprocess
-import threading
-import os
-import sys
-from pathlib import Path
-import queue
-import time
-import concurrent.futures
-import json
-import shutil
-import glob
+from tkinter import (filedialog, messagebox, scrolledtext, ttk)
+
+
+class ProjectConfig:
+    """项目配置类 - 集中管理所有配置数据"""
+
+    # 项目仓库URL配置
+    PROJECT_REPOS = {
+        "deepin-screen-recorder": {
+            "gitee": "https://gitee.com/deepin-community/deepin-screen-recorder.git",
+            "github": "https://github.com/linuxdeepin/deepin-screen-recorder.git",
+        },
+        "deepin-devicemanager": {
+            "gitee": "https://gitee.com/deepin-community/deepin-devicemanager.git",
+            "github": "https://github.com/linuxdeepin/deepin-devicemanager.git",
+        },
+        "deepin-movie-reborn": {
+            "gitee": "https://gitee.com/deepin-community/deepin-movie-reborn.git",
+            "github": "https://github.com/linuxdeepin/deepin-movie-reborn.git",
+        },
+        "deepin-camera": {
+            "gitee": "https://gitee.com/deepin-community/deepin-camera.git",
+            "github": "https://github.com/linuxdeepin/deepin-camera.git",
+        },
+        "deepin-editor": {
+            "gitee": "https://gitee.com/deepin-community/deepin-editor.git",
+            "github": "https://github.com/linuxdeepin/deepin-editor.git",
+        },
+        "deepin-music": {
+            "gitee": "https://gitee.com/deepin-community/deepin-music.git",
+            "github": "https://github.com/linuxdeepin/deepin-music.git",
+        },
+        "deepin-voice-note": {
+            "gitee": "https://gitee.com/deepin-community/deepin-voice-note.git",
+            "github": "https://github.com/linuxdeepin/deepin-voice-note.git",
+        },
+        "deepin-compressor": {
+            "gitee": "https://gitee.com/deepin-community/deepin-compressor.git",
+            "github": "https://github.com/linuxdeepin/deepin-compressor.git",
+        },
+        "deepin-manual": {
+            "gitee": "https://github.com/linuxdeepin/deepin-manual.git",
+            "github": "https://github.com/linuxdeepin/deepin-manual.git",
+        },
+        "deepin-ocr": {
+            "gitee": "https://gitee.com/deepin-community/deepin-ocr.git",
+            "github": "https://github.com/linuxdeepin/deepin-ocr.git",
+        },
+        "deepin-pdfium": {
+            "gitee": "https://gitee.com/deepin-community/deepin-pdfium.git",
+            "github": "https://github.com/linuxdeepin/deepin-pdfium.git",
+        },
+        "deepin-picker": {
+            "gitee": "https://gitee.com/deepin-community/deepin-picker.git",
+            "github": "https://github.com/linuxdeepin/deepin-picker.git",
+        },
+        "deepin-scanner": {
+            "gitee": "https://gitee.com/deepin-community/deepin-scanner.git",
+            "github": "https://github.com/linuxdeepin/deepin-scanner.git",
+        },
+        "deepin-reader": {
+            "gitee": "https://gitee.com/deepin-community/deepin-reader.git",
+            "github": "https://github.com/linuxdeepin/deepin-reader.git",
+        },
+        "dde-device-formatter": {
+            "gitee": "https://gitee.com/deepin-community/dde-device-formatter.git",
+            "github": "https://github.com/linuxdeepin/dde-device-formatter.git",
+        },
+        "deepin-draw": {
+            "gitee": "https://gitee.com/deepin-community/deepin-draw.git",
+            "github": "https://github.com/linuxdeepin/deepin-draw.git",
+        },
+        "deepin-log-viewer": {
+            "gitee": "https://gitee.com/deepin-community/deepin-log-viewer.git",
+            "github": "https://github.com/linuxdeepin/deepin-log-viewer.git",
+        },
+        "deepin-terminal": {
+            "gitee": "https://gitee.com/deepin-community/deepin-terminal.git",
+            "github": "https://github.com/linuxdeepin/deepin-terminal.git",
+        },
+        "deepin-system-monitor": {
+            "gitee": "https://gitee.com/deepin-community/deepin-system-monitor.git",
+            "github": "https://github.com/linuxdeepin/deepin-system-monitor.git",
+        },
+        "deepin-downloader": {
+            "gitee": "https://gitee.com/deepin-community/deepin-downloader.git",
+            "github": "https://github.com/linuxdeepin/deepin-downloader.git",
+        },
+        "deepin-image-viewer": {
+            "gitee": "https://gitee.com/deepin-community/deepin-image-viewer.git",
+            "github": "https://github.com/linuxdeepin/deepin-image-viewer.git",
+        },
+        "image-editor": {
+            "gitee": "https://gitee.com/deepin-community/image-editor.git",
+            "github": "https://github.com/linuxdeepin/image-editor.git",
+        },
+        "deepin-font-manager": {
+            "gitee": "https://gitee.com/deepin-community/deepin-font-manager.git",
+            "github": "https://github.com/linuxdeepin/deepin-font-manager.git",
+        },
+        "deepin-deb-installer": {
+            "gitee": "https://gitee.com/deepin-community/deepin-deb-installer.git",
+            "github": "https://github.com/linuxdeepin/deepin-deb-installer.git",
+        },
+        "deepin-diskmanager": {
+            "gitee": "https://gitee.com/deepin-community/deepin-diskmanager.git",
+            "github": "https://github.com/linuxdeepin/deepin-diskmanager.git",
+        },
+        "deepin-album": {
+            "gitee": "https://gitee.com/deepin-community/deepin-album.git",
+            "github": "https://github.com/linuxdeepin/deepin-album.git",
+        },
+        "dde-cooperation": {
+            "gitee": "https://gitee.com/deepin-community/dde-cooperation.git",
+            "github": "https://github.com/linuxdeepin/dde-cooperation.git",
+        },
+        "dde-grand-search": {
+            "gitee": "https://gitee.com/deepin-community/dde-grand-search.git",
+            "github": "https://github.com/linuxdeepin/dde-grand-search.git",
+        },
+        "dde-file-manager": {
+            "gitee": "https://gitee.com/deepin-community/dde-file-manager.git",
+            "github": "https://github.com/linuxdeepin/dde-file-manager.git",
+        },
+        "deepin-calculator": {
+            "gitee": "https://gitee.com/deepin-community/deepin-calculator.git",
+            "github": "https://github.com/linuxdeepin/deepin-calculator.git",
+        },
+        "media-debuger": {
+            "gitee": "https://gitee.com/sunstom/media-debuger.git",
+            "github": "https://github.com/SunStorm2018/media-debuger.git",
+        },
+        "os-config": {
+            "gitee": "https://gerrit.uniontech.com/base/os-config.git",
+            "github": "https://gerrit.uniontech.com/base/os-config.git",
+        },
+        "qt6-base": {
+            "gitee": "https://github.com/deepin-community/qt6-base.git",
+            "github": "https://github.com/deepin-community/qt6-base.git",
+        },
+        "qt6-declarative": {
+            "gitee": "https://github.com/deepin-community/qt6-declarative.git",
+            "github": "https://github.com/deepin-community/qt6-declarative.git",
+        },
+        "qt6-svg": {
+            "gitee": "https://github.com/deepin-community/qt6-svg.git",
+            "github": "https://github.com/deepin-community/qt6-svg.git",
+        },
+        "qt6-imageformats": {
+            "gitee": "https://github.com/deepin-community/qt6-imageformats.git",
+            "github": "https://github.com/deepin-community/qt6-imageformats.git",
+        },
+        "qt6-wayland": {
+            "gitee": "https://github.com/deepin-community/qt6-wayland.git",
+            "github": "https://github.com/deepin-community/qt6-wayland.git",
+        },
+        "qt6-webengine": {
+            "gitee": "https://github.com/deepin-community/qt6-webengine.git",
+            "github": "https://github.com/deepin-community/qt6-webengine.git",
+        },
+        "qt6-httpserver": {
+            "gitee": "https://github.com/deepin-community/qt6-httpserver.git",
+            "github": "https://github.com/deepin-community/qt6-httpserver.git",
+        },
+        "qt6-multimedia": {
+            "gitee": "https://github.com/deepin-community/qt6-multimedia.git",
+            "github": "https://github.com/deepin-community/qt6-multimedia.git",
+        },
+        "qt6-webview": {
+            "gitee": "https://github.com/deepin-community/qt6-webview.git",
+            "github": "https://github.com/deepin-community/qt6-webview.git",
+        },
+        "dde-daemon": {
+            "gitee": "https://github.com/linuxdeepin/dde-daemon.git",
+            "github": "https://github.com/linuxdeepin/dde-daemon.git",
+        },
+        "deepin-update-ui": {
+            "gitee": "https://github.com/linuxdeepin/deepin-update-ui.git",
+            "github": "https://github.com/linuxdeepin/deepin-update-ui.git",
+        },
+        "dde-session-ui": {
+            "gitee": "https://github.com/linuxdeepin/dde-session-ui.git",
+            "github": "https://github.com/linuxdeepin/deepin-session-ui.git",
+        },
+        "dde-network-core": {
+            "gitee": "https://github.com/linuxdeepin/dde-network-core.git",
+            "github": "https://github.com/linuxdeepin/dde-network-core.git",
+        },
+        "dde-shell": {
+            "gitee": "https://github.com/linuxdeepin/dde-shell.git",
+            "github": "https://github.com/linuxdeepin/dde-shell.git",
+        },
+        "dtkdeclarative": {
+            "gitee": "https://github.com/linuxdeepin/dtkdeclarative.git",
+            "github": "https://github.com/linuxdeepin/dtkdeclarative.git",
+        },
+        "dde-appearance": {
+            "gitee": "https://github.com/linuxdeepin/dde-appearance.git",
+            "github": "https://github.com/linuxdeepin/dde-appearance.git",
+        },
+        "qt6integration": {
+            "gitee": "https://github.com/linuxdeepin/qt6integration.git",
+            "github": "https://github.com/linuxdeepin/qt6integration.git",
+        },
+        "dde-polkit-agent": {
+            "gitee": "https://github.com/linuxdeepin/dde-polkit-agent.git",
+            "github": "https://github.com/linuxdeepin/dde-polkit-agent.git",
+        },
+        "dde-control-center": {
+            "gitee": "https://github.com/linuxdeepin/dde-control-center.git",
+            "github": "https://github.com/linuxdeepin/deepline/dde-control-center.git",
+        },
+        "dde-launchpad": {
+            "gitee": "https://github.com/linuxdeepin/dde-launchpad.git",
+            "github": "https://github.com/linuxdeepin/dde-launchpad.git",
+        },
+        "dde-clipboard": {
+            "gitee": "https://github.com/linuxdeepin/dde-clipboard.git",
+            "github": "https://github.com/linuxdeepin/dde-clipboard.git",
+        },
+        "dde-tray-loader": {
+            "gitee": "https://github.com/linuxdeepin/dde-tray-loader.git",
+            "github": "https://github.com/linuxdeepin/dde-tray-loader.git",
+        },
+        "dde-session": {
+            "gitee": "https://github.com/linuxdeepin/dde-session.git",
+            "github": "https://github.com/linuxdeepin/dde-session.git",
+        },
+        "dde-session-shell": {
+            "gitee": "https://github.com/linuxdeepin/dde-session-shell.git",
+            "github": "https://github.com/linuxdeepin/dde-session-shell.git",
+        },
+    }
+
+    # 软件包列表
+    PACKAGES = {
+        "gdb": "GUN调试工具",
+        "strace": "进程追踪器",
+        "git": "Git版本控制系统",
+        "gitk": "Git图形化工具",
+        "sshfs": "SSH文件系统",
+        "git-cola": "Git-cola图形化工具",
+        "qtcreator": "Qt Creator IDE",
+        "qt5-default": "Qt5开发环境",
+        "dde-dconfig-editor": "DDE配置编辑器",
+        "d-feet": "D-Bus调试工具",
+        "v4l-utils": "Video4Linux工具集",
+        "edid-decode": "显示器edid文件解码器",
+        "pavucontrol": "pulseaudio控制器",
+        "sqlitebrowser": "sqlite数据库管理工具",
+        "vainfo": "Video Acceleration (VA) API 信息工具",
+        "vdpauinfo": "Video Decode and Presentation API for Unix 信息工具",
+        "usbview": "以树形结构USB总线设备查看工具",
+    }
+
+    # 配置常量
+    UPDATE_INTERVAL_DAYS = 3
+    SSHFS_HISTORY_MAX_COUNT = 20
+    
+    # UI样式配置
+    class UIStyle:
+        """UI样式配置类"""
+        
+        # 颜色配置
+        COLOR_TITLE = '#2c3e50'
+        COLOR_HEADER = '#34495e'
+        COLOR_INFO = '#7f8c8d'
+        COLOR_STATUS = 'orange'
+        COLOR_CARD_BG = '#ecf0f1'
+        COLOR_SECTION_BG = '#f8f9fa'
+        COLOR_PRIMARY_BTN = '#F8F8F8'
+        COLOR_SUCCESS_BTN = '#E4E4E4'
+        COLOR_WARNING_BTN = '#E4E4E4'
+        COLOR_DANGER_BTN = '#d9534f'
+        COLOR_DANGER_BTN_ACTIVE = '#c9302c'
+        COLOR_PROGRESSBAR = '#4a90e2'
+        COLOR_PROGRESSBAR_DARK = '#357abd'
+        COLOR_SCROLLBAR = '#bdc3c7'
+        COLOR_WHITE = '#ffffff'
+        COLOR_INSERT_BG = '#4a90e2'
+        
+        # 字体配置
+        FONT_FAMILY = 'Arial'
+        FONT_SIZE_SMALL = 9
+        FONT_SIZE_NORMAL = 10
+        FONT_SIZE_LARGE = 11
+        FONT_SIZE_XLARGE = 12
+        FONT_SIZE_XXLARGE = 24
+        
+        # 窗口尺寸配置
+        WINDOW_MAIN_WIDTH = 1200
+        WINDOW_MAIN_HEIGHT = 1000
+        WINDOW_MIN_WIDTH = 1000
+        WINDOW_MIN_HEIGHT = 700
+        WINDOW_DIALOG_WIDTH = 600
+        WINDOW_DIALOG_HEIGHT = 350
+        
+        # 组件尺寸配置
+        BORDER_WIDTH_THIN = 1
+        BORDER_WIDTH_THICK = 2
+        PADDING_SMALL = (8, 4)
+        PADDING_MEDIUM = (4, 4)
+        PADDING_LARGE = [10, 5]
+        ROW_HEIGHT = 25
+        SCROLLBAR_WIDTH = 12
+        ENTRY_WIDTH = 30
+        BUTTON_WIDTH = 3
+        COMBOBOX_WIDTH = 15
+        
+        # 缩放因子配置
+        SCALE_FACTOR_MIN = 1.0
+        SCALE_FACTOR_MAX = 2.5
+    
+    # 超时配置（秒）
+    class Timeout:
+        """超时配置类"""
+        SUBPROCESS_SHORT = 3
+        SUBPROCESS_NORMAL = 5
+        SUBPROCESS_LONG = 10
+        SUBPROCESS_EXTENDED = 30
+        SUBPROCESS_INSTALL = 60
+        SUBPROCESS_APT = 120
+    
+    # 文件名配置
+    class FileName:
+        """文件名配置类"""
+        CACHE_LAST_UPDATE = "last_update.json"
+        CACHE_SSHFS_HISTORY = "sshfs_history.json"
+        CONFIG_MAIN = ".deepin_project_downloader.json"
+    
+    # 线程池配置
+    class ThreadPool:
+        """线程池配置类"""
+        MAX_WORKERS = 10
+    
+    # 系统命令配置
+    class SystemCommand:
+        """系统命令配置类"""
+        XRDB_QUERY = ['xrdb', '-query']
+        DMIDECODE = ['dmidecode', '-t', '1']
+        PGREP_WAYLAND = ['pgrep', '-f', 'wayland']
+        PGREP_XORG = ['pgrep', '-f', 'Xorg']
+        NPROC = ['nproc']
+        LSCPU = ['lscpu']
+        UNAME = ['uname', '-a']
+        SYSTEMCTL_SSH = ["systemctl", "is-active", "ssh"]
+        DPKG_OPENSSSH = ["dpkg", "-l", "openssh-server"]
+        HOSTNAME = ["hostname", "-I"]
+        XDG_OPEN = ["xdg-open"]
+        PGREP_SSHFS = ["pgrep", "-f", "sshfs"]
+        PS_ARGS = ["ps", "-p", "-o", "args="]
+        WHICH = ["which"]
+        MOUNT = ["mount"]
+    
+    # 应用信息配置
+    class AppInfo:
+        """应用信息配置类"""
+        APP_NAME = "DFM 开发工具箱"
+        APP_AUTHOR = "zhanghongyuan"
+        APP_EMAIL = "2063218120@qq.com"
+        APP_LICENSE = "GNU General Public License v3.0"
+        APP_PROJECT_URL = "https://github.com/linuxdeepin/dfm-tools"
+        APP_DESCRIPTION = (
+            "DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
+            "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。"
+        )
+        APP_FEATURES = [
+            "• 项目管理：支持多项目并行下载、分支管理、依赖安装",
+            "• 软件包管理：批量安装开发工具和调试软件",
+            "• 软件源管理：图形化编辑和管理APT软件源",
+            "• Host管理：便捷的hosts文件编辑和GitHub访问优化",
+            "• SSH配置：SSH服务器配置和密钥管理",
+            "• SSHFS挂载：远程文件系统挂载和管理",
+            "• 系统信息：查看系统硬件和产品信息"
+        ]
+        APP_FOOTER = "感谢您使用 DFM 开发工具箱！\n如有问题或建议，欢迎反馈。"
+    
+    # 网络配置
+    class Network:
+        """网络配置类"""
+        GITHUB_IP_ENTRY = "140.82.112.4 github.com"
+        GITHUB_DOMAIN = "github.com"
+        GITEE_DOMAIN = "gitee.com"
 
 
 class ScrollableFrame(ttk.Frame):
@@ -224,9 +618,9 @@ class DeepinProjectDownloader:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("DFM 开发工具箱")
-        self.root.geometry("1200x1000")
-        self.root.minsize(1000, 700)
+        self.root.title(ProjectConfig.AppInfo.APP_NAME)
+        self.root.geometry(f"{ProjectConfig.UIStyle.WINDOW_MAIN_WIDTH}x{ProjectConfig.UIStyle.WINDOW_MAIN_HEIGHT}")
+        self.root.minsize(ProjectConfig.UIStyle.WINDOW_MIN_WIDTH, ProjectConfig.UIStyle.WINDOW_MIN_HEIGHT)
         
         # 设置高分屏支持
         self.setup_dpi_scaling()
@@ -236,24 +630,23 @@ class DeepinProjectDownloader:
         
         # 初始化缓存目录和时间戳
         self.cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "deepin-project-downloader")
-        self.cache_file = os.path.join(self.cache_dir, "last_update.json")
-        self.update_interval_days = 3  # 更新间隔：3天
+        self.cache_file = os.path.join(self.cache_dir, ProjectConfig.FileName.CACHE_LAST_UPDATE)
+        self.update_interval_days = ProjectConfig.UPDATE_INTERVAL_DAYS  # 更新间隔：3天
         self.init_cache_directory()
         
         # SSHFS历史记录
-        self.sshfs_history_file = os.path.join(self.cache_dir, "sshfs_history.json")
+        self.sshfs_history_file = os.path.join(self.cache_dir, ProjectConfig.FileName.CACHE_SSHFS_HISTORY)
         self.sshfs_history = []  # 存储所有历史记录
-        self.sshfs_history_max_count = 20  # 最多保存20条历史记录
+        self.sshfs_history_max_count = ProjectConfig.SSHFS_HISTORY_MAX_COUNT  # 最多保存20条历史记录
         self.init_sshfs_history()
         
         # 注册程序退出时的清理函数（移除自动清理）
         # self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # 配置文件路径
-        self.config_file = os.path.join(os.path.expanduser("~"), ".deepin_project_downloader.json")
-        # 配置文件路径
-        self.config_file = os.path.join(os.path.expanduser("~"), ".deepin_project_downloader.json")
-
+        self.config_file = os.path.join(
+            os.path.expanduser("~"), ProjectConfig.FileName.CONFIG_MAIN
+        )
         
         # 消息队列用于线程间通信
         self.message_queue = queue.Queue()
@@ -292,259 +685,16 @@ class DeepinProjectDownloader:
         self.controls_enabled = False
         self.project_controls = []  # 存储需要管理的项目控件
         
-        # 项目仓库URL配置
-        self.project_repos = {
-            "deepin-screen-recorder": {
-                "gitee": "https://gitee.com/deepin-community/deepin-screen-recorder.git",
-                "github": "https://github.com/linuxdeepin/deepin-screen-recorder.git"
-            },
-            "deepin-devicemanager": {
-                "gitee": "https://gitee.com/deepin-community/deepin-devicemanager.git", 
-                "github": "https://github.com/linuxdeepin/deepin-devicemanager.git"
-            },
-            "deepin-movie-reborn": {
-                "gitee": "https://gitee.com/deepin-community/deepin-movie-reborn.git",
-                "github": "https://github.com/linuxdeepin/deepin-movie-reborn.git"
-            },
-            "deepin-camera": {
-                "gitee": "https://gitee.com/deepin-community/deepin-camera.git",
-                "github": "https://github.com/linuxdeepin/deepin-camera.git"
-            },
-            "deepin-editor": {
-                "gitee": "https://gitee.com/deepin-community/deepin-editor.git", 
-                "github": "https://github.com/linuxdeepin/deepin-editor.git"
-            },
-            "deepin-music": {
-                "gitee": "https://gitee.com/deepin-community/deepin-music.git", 
-                "github": "https://github.com/linuxdeepin/deepin-music.git"
-            },
-            "deepin-voice-note": {
-                "gitee": "https://gitee.com/deepin-community/deepin-voice-note.git", 
-                "github": "https://github.com/linuxdeepin/deepin-voice-note.git"
-            },
-            "deepin-compressor": {
-                "gitee": "https://gitee.com/deepin-community/deepin-compressor.git", 
-                "github": "https://github.com/linuxdeepin/deepin-compressor.git"
-            }, 
-            "deepin-manual": {
-                "gitee": "https://gitee.com/deepin-community/deepin-manual.git", 
-                "github": "https://github.com/linuxdeepin/deepin-manual.git"
-            },           
-            "deepin-ocr": {
-                "gitee": "https://gitee.com/deepin-community/deepin-ocr.git", 
-                "github": "https://github.com/linuxdeepin/deepin-ocr.git"
-            },           
-            "deepin-pdfium": {
-                "gitee": "https://gitee.com/deepin-community/deepin-pdfium.git", 
-                "github": "https://github.com/linuxdeepin/deepin-pdfium.git"
-            },        
-            "deepin-picker": {
-                "gitee": "https://gitee.com/deepin-community/deepin-picker.git", 
-                "github": "https://github.com/linuxdeepin/deepin-picker.git"
-            },           
-            "deepin-scanner": {
-                "gitee": "https://gitee.com/deepin-community/deepin-scanner.git", 
-                "github": "https://github.com/linuxdeepin/deepin-scanner.git"
-            },
-            "deepin-reader": {
-                "gitee": "https://gitee.com/deepin-community/deepin-reader.git", 
-                "github": "https://github.com/linuxdeepin/deepin-reader.git"
-            },
-            "dde-device-formatter": {
-                "gitee": "https://gitee.com/deepin-community/dde-device-formatter.git", 
-                "github": "https://github.com/linuxdeepin/dde-device-formatter.git"
-            },
-            "deepin-draw": {
-                "gitee": "https://gitee.com/deepin-community/deepin-draw.git", 
-                "github": "https://github.com/linuxdeepin/deepin-draw.git"
-            },
-            "deepin-log-viewer": {
-                "gitee": "https://gitee.com/deepin-community/deepin-log-viewer.git", 
-                "github": "https://github.com/linuxdeepin/deepin-log-viewer.git"
-            },
-            "deepin-terminal": {
-                "gitee": "https://gitee.com/deepin-community/deepin-terminal.git", 
-                "github": "https://github.com/linuxdeepin/deepin-terminal.git"
-            },
-            "deepin-system-monitor": {
-                "gitee": "https://gitee.com/deepin-community/deepin-system-monitor.git", 
-                "github": "https://github.com/linuxdeepin/deepin-system-monitor.git"
-            },
-            "deepin-downloader": {
-                "gitee": "https://gitee.com/deepin-community/deepin-downloader.git", 
-                "github": "https://github.com/linuxdeepin/deepin-downloader.git"
-            },
-            "deepin-image-viewer": {
-                "gitee": "https://gitee.com/deepin-community/deepin-image-viewer.git", 
-                "github": "https://github.com/linuxdeepin/deepin-image-viewer.git"
-            },
-            "image-editor": {
-                "gitee": "https://gitee.com/deepin-community/image-editor.git", 
-                "github": "https://github.com/linuxdeepin/image-editor.git"
-            },
-            "deepin-font-manager": {
-                "gitee": "https://gitee.com/deepin-community/deepin-font-manager.git", 
-                "github": "https://github.com/linuxdeepin/deepin-font-manager.git"
-            },
-            "deepin-deb-installer": {
-                "gitee": "https://gitee.com/deepin-community/deepin-deb-installer.git", 
-                "github": "https://github.com/linuxdeepin/deepin-deb-installer.git"
-            },
-            "deepin-diskmanager": {
-                "gitee": "https://gitee.com/deepin-community/deepin-diskmanager.git", 
-                "github": "https://github.com/linuxdeepin/deepin-diskmanager.git"
-            },
-            "deepin-album": {
-                "gitee": "https://gitee.com/deepin-community/deepin-album.git", 
-                "github": "https://github.com/linuxdeepin/deepin-album.git"
-            },
-            "dde-cooperation": {
-                "gitee": "https://gitee.com/deepin-community/dde-cooperation.git", 
-                "github": "https://github.com/linuxdeepin/dde-cooperation.git"
-            },
-            "dde-grand-search": {
-                "gitee": "https://gitee.com/deepin-community/dde-grand-search.git", 
-                "github": "https://github.com/linuxdeepin/dde-grand-search.git"
-            },
-            "dde-file-manager": {
-                "gitee": "https://gitee.com/deepin-community/dde-file-manager.git", 
-                "github": "https://github.com/linuxdeepin/dde-file-manager.git"
-            },
-            "deepin-calculator": {
-                "gitee": "https://gitee.com/deepin-community/deepin-calculator.git", 
-                "github": "https://github.com/linuxdeepin/deepin-calculator.git"
-            },
-            "media-debuger": {
-                "gitee": "https://gitee.com/sunstom/media-debuger.git", 
-                "github": "https://github.com/SunStorm2018/media-debuger.git"
-            },
-            "os-config": {
-                "gitee": "https://gerrit.uniontech.com/base/os-config.git",
-                "github": "https://gerrit.uniontech.com/base/os-config.git"
-            },
-            "qt6-base": {
-                "gitee": "https://github.com/deepin-community/qt6-base.git",
-                "github": "https://github.com/deepin-community/qt6-base.git"
-            },
-            "qt6-declarative": {
-                "gitee": "https://github.com/deepin-community/qt6-declarative.git",
-                "github": "https://github.com/deepin-community/qt6-declarative.git"
-            },
-            "qt6-svg": {
-                "gitee": "https://github.com/deepin-community/qt6-svg.git",
-                "github": "https://github.com/deepin-community/qt6-svg.git"
-            },
-            "qt6-imageformats": {
-                "gitee": "https://github.com/deepin-community/qt6-imageformats.git",
-                "github": "https://github.com/deepin-community/qt6-imageformats.git"
-            },
-            "qt6-wayland": {
-                "gitee": "https://github.com/deepin-community/qt6-wayland.git",
-                "github": "https://github.com/deepin-community/qt6-wayland.git"
-            },
-            "qt6-webengine": {
-                "gitee": "https://github.com/deepin-community/qt6-webengine.git",
-                "github": "https://github.com/deepin-community/qt6-webengine.git"
-            },
-            "qt6-httpserver": {
-                "gitee": "https://github.com/deepin-community/qt6-httpserver.git",
-                "github": "https://github.com/deepin-community/qt6-httpserver.git"
-            },
-            "qt6-multimedia": {
-                "gitee": "https://github.com/deepin-community/qt6-multimedia.git",
-                "github": "https://github.com/deepin-community/qt6-multimedia.git"
-            },
-            "qt6-webview": {
-                "gitee": "https://github.com/deepin-community/qt6-webview.git",
-                "github": "https://github.com/deepin-community/qt6-webview.git"
-            },
-            "dde-daemon": {
-                "gitee": "https://github.com/linuxdeepin/dde-daemon.git",
-                "github": "https://github.com/linuxdeepin/dde-daemon.git"
-            },
-            "deepin-update-ui": {
-                "gitee": "https://github.com/linuxdeepin/deepin-update-ui.git",
-                "github": "https://github.com/linuxdeepin/deepin-update-ui.git"
-            },
-            "dde-session-ui": {
-                "gitee": "https://github.com/linuxdeepin/dde-session-ui.git",
-                "github": "https://github.com/linuxdeepin/dde-session-ui.git"
-            },
-            "dde-network-core": {
-                "gitee": "https://github.com/linuxdeepin/dde-network-core.git",
-                "github": "https://github.com/linuxdeepin/dde-network-core.git"
-            },
-            "dde-shell": {
-                "gitee": "https://github.com/linuxdeepin/dde-shell.git",
-                "github": "https://github.com/linuxdeepin/dde-shell.git"
-            },
-            "dtkdeclarative": {
-                "gitee": "https://github.com/linuxdeepin/dtkdeclarative.git",
-                "github": "https://github.com/linuxdeepin/dtkdeclarative.git"
-            },
-            "dde-appearance": {
-                "gitee": "https://github.com/linuxdeepin/dde-appearance.git",
-                "github": "https://github.com/linuxdeepin/dde-appearance.git"
-            },
-            "qt6integration": {
-                "gitee": "https://github.com/linuxdeepin/qt6integration.git",
-                "github": "https://github.com/linuxdeepin/qt6integration.git"
-            },
-            "dde-polkit-agent": {
-                "gitee": "https://github.com/linuxdeepin/dde-polkit-agent.git",
-                "github": "https://github.com/linuxdeepin/dde-polkit-agent.git"
-            },
-            "dde-control-center": {
-                "gitee": "https://github.com/linuxdeepin/dde-control-center.git",
-                "github": "https://github.com/linuxdeepin/dde-control-center.git"
-            },
-            "dde-launchpad": {
-                "gitee": "https://github.com/linuxdeepin/dde-launchpad.git",
-                "github": "https://github.com/linuxdeepin/dde-launchpad.git"
-            },
-            "dde-clipboard": {
-                "gitee": "https://github.com/linuxdeepin/dde-clipboard.git",
-                "github": "https://github.com/linuxdeepin/dde-clipboard.git"
-            },
-            "dde-tray-loader": {
-                "gitee": "https://github.com/linuxdeepin/dde-tray-loader.git",
-                "github": "https://github.com/linuxdeepin/dde-tray-loader.git"
-            },
-            "dde-session": {
-                "gitee": "https://github.com/linuxdeepin/dde-session.git",
-                "github": "https://github.com/linuxdeepin/dde-session.git"
-            },
-            "dde-session-shell": {
-                "gitee": "https://github.com/linuxdeepin/dde-session-shell.git",
-                "github": "https://github.com/linuxdeepin/dde-session-shell.git"
-            }
-        }
+        # 项目仓库URL配置 - 使用配置类
+        self.project_repos = ProjectConfig.PROJECT_REPOS
         
         # 搜索过滤变量
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", self.filter_projects)
         self.filtered_projects = list(self.project_repos.keys())
         
-        # 软件包列表
-        self.packages = {
-            "gdb": "GUN调试工具",
-            "strace": "进程追踪器",
-            "git": "Git版本控制系统",
-            "gitk": "Git图形化工具",
-            "sshfs": "SSH文件系统",
-            "git-cola": "Git-cola图形化工具",
-            "qtcreator": "Qt Creator IDE",
-            "qt5-default": "Qt5开发环境",
-            "dde-dconfig-editor": "DDE配置编辑器",
-            "d-feet": "D-Bus调试工具",
-            "v4l-utils": "Video4Linux工具集",
-            "edid-decode": "显示器edid文件解码器",
-            "pavucontrol": "pulseaudio控制器",
-            "sqlitebrowser": "sqlite数据库管理工具",
-            "vainfo": "Video Acceleration (VA) API 信息工具",
-            "vdpauinfo": "Video Decode and Presentation API for Unix 信息工具",
-            "usbview": "以树形结构USB总线设备查看工具"
-        }
+        # 软件包列表 - 使用配置类
+        self.packages = ProjectConfig.PACKAGES
         
         # 软件包搜索过滤变量
         self.package_search_var = tk.StringVar()
@@ -608,7 +758,8 @@ class DeepinProjectDownloader:
                 if scale_factor <= 1.0:
                     # 尝试从Xft.dpi获取DPI信息
                     try:
-                        result = subprocess.run(['xrdb', '-query'], capture_output=True, text=True, timeout=5)
+                        result = subprocess.run(['xrdb', '-query'], capture_output=True, text=True,
+                                               timeout=ProjectConfig.Timeout.SUBPROCESS_NORMAL)
                         if result.returncode == 0:
                             for line in result.stdout.split('\n'):
                                 if 'Xft.dpi:' in line:
@@ -618,10 +769,11 @@ class DeepinProjectDownloader:
                                     break
                     except:
                         pass
-            
             # 应用缩放比例（最小1.0，最大2.5）
-            scale_factor = max(1.0, min(scale_factor, 2.5))
+            scale_factor = max(ProjectConfig.UIStyle.SCALE_FACTOR_MIN,
+                             min(scale_factor, ProjectConfig.UIStyle.SCALE_FACTOR_MAX))
             self.root.tk.call('tk', 'scaling', scale_factor)
+             
             
             self.log_message(f"[系统] DPI缩放比例设置为: {scale_factor:.2f}")
             
@@ -780,47 +932,107 @@ class DeepinProjectDownloader:
         style = ttk.Style()
         style.theme_use('clam')
         
-        # 配置样式
-        style.configure('Title.TLabel', font=('Arial', 10, 'bold'), foreground='#2c3e50')
-        style.configure('Header.TLabel', font=('Arial', 10, 'bold'), foreground='#34495e')
-        style.configure('Info.TLabel', font=('Arial', 10), foreground='#7f8c8d')
-        style.configure('Status.TLabel', font=('Arial', 10), foreground='orange')
-        style.configure('FilePath.TLabel', font=('', 10), foreground='#2c3e50')
+        # 配置样式 - 使用配置常量
+        style.configure('Title.TLabel',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL, 'bold'),
+                       foreground=ProjectConfig.UIStyle.COLOR_TITLE)
+        style.configure('Header.TLabel',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL, 'bold'),
+                       foreground=ProjectConfig.UIStyle.COLOR_HEADER)
+        style.configure('Info.TLabel',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                       foreground=ProjectConfig.UIStyle.COLOR_INFO)
+        style.configure('Status.TLabel',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                       foreground=ProjectConfig.UIStyle.COLOR_STATUS)
+        style.configure('FilePath.TLabel',
+                       font=('', ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                       foreground=ProjectConfig.UIStyle.COLOR_TITLE)
         
         # 按钮样式 - 调整为更紧凑的尺寸
-        style.configure('Primary.TButton', font=('Arial', 9, 'bold'), background='#F8F8F8', padding=(8, 4))
-        style.configure('Success.TButton', font=('Arial', 9, 'bold'), background='#E4E4E4', padding=(8, 4))
-        style.configure('Warning.TButton', font=('Arial', 9, 'bold'), background='#E4E4E4', padding=(8, 4))
-        style.configure('Danger.TButton', font=('Arial', 9, 'bold'), background='#d9534f', foreground='white', padding=(4, 4))
-        style.map('Danger.TButton', background=[('active', '#c9302c'), ('pressed', '#c9302c')])
+        style.configure('Primary.TButton',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_SMALL, 'bold'),
+                       background=ProjectConfig.UIStyle.COLOR_PRIMARY_BTN,
+                       padding=ProjectConfig.UIStyle.PADDING_SMALL)
+        style.configure('Success.TButton',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_SMALL, 'bold'),
+                       background=ProjectConfig.UIStyle.COLOR_SUCCESS_BTN,
+                       padding=ProjectConfig.UIStyle.PADDING_SMALL)
+        style.configure('Warning.TButton',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_SMALL, 'bold'),
+                       background=ProjectConfig.UIStyle.COLOR_WARNING_BTN,
+                       padding=ProjectConfig.UIStyle.PADDING_SMALL)
+        style.configure('Danger.TButton',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_SMALL, 'bold'),
+                       background=ProjectConfig.UIStyle.COLOR_DANGER_BTN,
+                       foreground=ProjectConfig.UIStyle.COLOR_WHITE,
+                       padding=ProjectConfig.UIStyle.PADDING_MEDIUM)
+        style.map('Danger.TButton',
+                 background=[('active', ProjectConfig.UIStyle.COLOR_DANGER_BTN_ACTIVE),
+                           ('pressed', ProjectConfig.UIStyle.COLOR_DANGER_BTN_ACTIVE)])
         
         # 框架样式
-        style.configure('Card.TFrame', relief='solid', borderwidth=1, background='#ecf0f1')
-        style.configure('Section.TFrame', relief='groove', borderwidth=2, background='#f8f9fa')
+        style.configure('Card.TFrame',
+                       relief='solid',
+                       borderwidth=ProjectConfig.UIStyle.BORDER_WIDTH_THIN,
+                       background=ProjectConfig.UIStyle.COLOR_CARD_BG)
+        style.configure('Section.TFrame',
+                       relief='groove',
+                       borderwidth=ProjectConfig.UIStyle.BORDER_WIDTH_THICK,
+                       background=ProjectConfig.UIStyle.COLOR_SECTION_BG)
         
         # 标签框架样式
-        style.configure('Title.TLabelframe', font=('Arial', 10, 'bold'), foreground='#2c3e50')
-        style.configure('Title.TLabelframe.Label', font=('Arial', 10, 'bold'), foreground='#2c3e50')
+        style.configure('Title.TLabelframe',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL, 'bold'),
+                       foreground=ProjectConfig.UIStyle.COLOR_TITLE)
+        style.configure('Title.TLabelframe.Label',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL, 'bold'),
+                       foreground=ProjectConfig.UIStyle.COLOR_TITLE)
         
         # 进度条样式
         style.configure('Custom.Horizontal.TProgressbar',
-                       background='#4a90e2',
-                       troughcolor='#ecf0f1',
+                       background=ProjectConfig.UIStyle.COLOR_PROGRESSBAR,
+                       troughcolor=ProjectConfig.UIStyle.COLOR_CARD_BG,
                        borderwidth=0,
-                       lightcolor='#4a90e2',
-                       darkcolor='#357abd')
+                       lightcolor=ProjectConfig.UIStyle.COLOR_PROGRESSBAR,
+                       darkcolor=ProjectConfig.UIStyle.COLOR_PROGRESSBAR_DARK)
         
         # 树形视图样式
-        style.configure('Treeview', font=('Arial', 9), rowheight=25)
-        style.configure('Treeview.Heading', font=('Arial', 10, 'bold'), foreground='#2c3e50')
+        style.configure('Treeview',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_SMALL),
+                       rowheight=ProjectConfig.UIStyle.ROW_HEIGHT)
+        style.configure('Treeview.Heading',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL, 'bold'),
+                       foreground=ProjectConfig.UIStyle.COLOR_TITLE)
         
         # 选项卡样式
-        style.configure('TNotebook', background='#ecf0f1')
-        style.configure('TNotebook.Tab', font=('Arial', 10, 'bold'), padding=[10, 5])
+        style.configure('TNotebook',
+                       background=ProjectConfig.UIStyle.COLOR_CARD_BG)
+        style.configure('TNotebook.Tab',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL, 'bold'),
+                       padding=ProjectConfig.UIStyle.PADDING_LARGE)
         
         # 输入框样式
-        style.configure('TEntry', font=('Arial', 10), fieldbackground='#ffffff')
-        style.configure('TCombobox', font=('Arial', 10))
+        style.configure('TEntry',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                       fieldbackground=ProjectConfig.UIStyle.COLOR_WHITE)
+        style.configure('TCombobox',
+                       font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                             ProjectConfig.UIStyle.FONT_SIZE_NORMAL))
         
         # 复选框样式
         style.configure('TCheckbutton', font=('Arial', 10))
@@ -905,7 +1117,7 @@ class DeepinProjectDownloader:
             # 创建对话框
             dialog = tk.Toplevel(self.root)
             dialog.title(f"项目 {project_name} 需要认证")
-            dialog.geometry("600x350")
+            dialog.geometry(f"{ProjectConfig.UIStyle.WINDOW_DIALOG_WIDTH}x{ProjectConfig.UIStyle.WINDOW_DIALOG_HEIGHT}")
             dialog.transient(self.root)
             dialog.grab_set()
             dialog.resizable(False, False)
@@ -1477,7 +1689,7 @@ class DeepinProjectDownloader:
         
         # Git用户名
         ttk.Label(self.git_content_frame, text="用户名:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
-        self.git_name_var = tk.StringVar(value="zhanghongyuan")
+        self.git_name_var = tk.StringVar(value=ProjectConfig.AppInfo.APP_AUTHOR)
         git_name_entry = ttk.Entry(self.git_content_frame, textvariable=self.git_name_var, width=30)
         git_name_entry.grid(row=0, column=1, padx=(0, 10), pady=(5, 2), sticky="ew")
         
@@ -2707,17 +2919,6 @@ class DeepinProjectDownloader:
                 
         except Exception as e:
             self.log_message(f"[SSHFS] 配置变化处理失败: {str(e)}")
-
-    def get_local_ip(self):
-        """获取本机IP地址"""
-        try:
-            import socket
-            # 创建一个UDP套接字连接到外部地址来获取本机IP
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.connect(("8.8.8.8", 80))
-                return s.getsockname()[0]
-        except Exception:
-            return "127.0.0.1"
 
     def update_sshfs_command(self, *args):
         """更新SSHFS命令"""
@@ -5091,23 +5292,6 @@ read
         except Exception as e:
             print(f"清除日志失败: {e}")
     
-    def _copy_log_text(self):
-        """复制选中的日志文本（已废弃，保留用于兼容性）"""
-        try:
-            selected_text = self.log_text.selection_get()
-            self.root.clipboard_clear()
-            self.root.clipboard_append(selected_text)
-        except tk.TclError:
-            # 如果没有选中文本，不做任何操作
-            pass
-    
-    def _select_all_log_text(self):
-        """全选日志文本（已废弃，保留用于兼容性）"""
-        self.log_text.tag_add(tk.SEL, "1.0", tk.END)
-        self.log_text.mark_set(tk.INSERT, "1.0")
-        self.log_text.see(tk.INSERT)
-
-    
     def log_message(self, message):
         """添加日志消息"""
         timestamp = time.strftime("%H:%M:%S")
@@ -5643,10 +5827,12 @@ read
                 os.makedirs(self.save_path.get(), exist_ok=True)
                 
                 projects = self.get_current_projects()
-                
                 # 使用线程池并行下载
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=ProjectConfig.ThreadPool.MAX_WORKERS
+                ) as executor:
                     futures = {}
+                     
                     
                     for project_name in selected_projects:
                         repo_url = projects[project_name]
@@ -6089,13 +6275,17 @@ read
         version_info = self.get_package_version()
         
         # 软件标题
-        title_label = ttk.Label(content_frame, text="DFM 开发工具箱",
-                               font=("Arial", 24, "bold"), foreground="#2c3e50")
+        title_label = ttk.Label(content_frame, text=ProjectConfig.AppInfo.APP_NAME,
+                               font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                     ProjectConfig.UIStyle.FONT_SIZE_XXLARGE, 'bold'),
+                               foreground=ProjectConfig.UIStyle.COLOR_TITLE)
         title_label.grid(row=0, column=0, pady=(20, 10))
         
         # 软件版本
         version_label = ttk.Label(content_frame, text=f"版本: {version_info}",
-                                 font=("Arial", 12), foreground="#7f8c8d")
+                                 font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                       ProjectConfig.UIStyle.FONT_SIZE_XLARGE),
+                                 foreground=ProjectConfig.UIStyle.COLOR_INFO)
         version_label.grid(row=1, column=0, pady=(0, 20))
         
         # 分隔线
@@ -6103,10 +6293,10 @@ read
         separator1.grid(row=2, column=0, sticky="ew", pady=(10, 20))
         
         # 软件描述
-        desc_text = ("DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
-                    "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。")
-        desc_label = ttk.Label(content_frame, text=desc_text,
-                              font=("Arial", 11), wraplength=900, justify="center")
+        desc_label = ttk.Label(content_frame, text=ProjectConfig.AppInfo.APP_DESCRIPTION,
+                              font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                    ProjectConfig.UIStyle.FONT_SIZE_LARGE),
+                              wraplength=900, justify="center")
         desc_label.grid(row=3, column=0, pady=(0, 20))
         
         # 分隔线
@@ -6118,19 +6308,11 @@ read
         features_frame.grid(row=5, column=0, sticky="ew", padx=50, pady=(0, 20))
         features_frame.columnconfigure(0, weight=1)
         
-        features = [
-            "• 项目管理：支持多项目并行下载、分支管理、依赖安装",
-            "• 软件包管理：批量安装开发工具和调试软件",
-            "• 软件源管理：图形化编辑和管理APT软件源",
-            "• Host管理：便捷的hosts文件编辑和GitHub访问优化",
-            "• SSH配置：SSH服务器配置和密钥管理",
-            "• SSHFS挂载：远程文件系统挂载和管理",
-            "• 系统信息：查看系统硬件和产品信息"
-        ]
-        
-        for i, feature in enumerate(features):
+        for i, feature in enumerate(ProjectConfig.AppInfo.APP_FEATURES):
             feature_label = ttk.Label(features_frame, text=feature,
-                                    font=("Arial", 10), justify="left")
+                                    font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                          ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                                    justify="left")
             feature_label.grid(row=i, column=0, sticky="w", pady=3, padx=10)
         
         # 分隔线
@@ -6138,13 +6320,17 @@ read
         separator3.grid(row=6, column=0, sticky="ew", pady=(10, 20))
         
         # 作者信息
-        author_label = ttk.Label(content_frame, text="作者: zhanghongyuan",
-                                font=("Arial", 11, "bold"), foreground="#2c3e50")
+        author_label = ttk.Label(content_frame, text=f"作者: {ProjectConfig.AppInfo.APP_AUTHOR}",
+                                font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                      ProjectConfig.UIStyle.FONT_SIZE_LARGE, 'bold'),
+                                foreground=ProjectConfig.UIStyle.COLOR_TITLE)
         author_label.grid(row=7, column=0, pady=(0, 5))
         
         # 邮箱信息
-        email_label = ttk.Label(content_frame, text="邮箱: zhanghongyuan@uniontech.com",
-                               font=("Arial", 10), foreground="#7f8c8d")
+        email_label = ttk.Label(content_frame, text=f"邮箱: {ProjectConfig.AppInfo.APP_EMAIL}",
+                               font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                     ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                               foreground=ProjectConfig.UIStyle.COLOR_INFO)
         email_label.grid(row=9, column=0, pady=(0, 20))
         
         # 分隔线
@@ -6152,20 +6338,24 @@ read
         separator4.grid(row=10, column=0, sticky="ew", pady=(10, 20))
         
         # 许可证信息
-        license_label = ttk.Label(content_frame, text="许可证: GNU General Public License v3.0",
-                                 font=("Arial", 10), foreground="#7f8c8d")
+        license_label = ttk.Label(content_frame, text=f"许可证: {ProjectConfig.AppInfo.APP_LICENSE}",
+                                 font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                       ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                                 foreground=ProjectConfig.UIStyle.COLOR_INFO)
         license_label.grid(row=11, column=0, pady=(0, 5))
         
         # 项目地址
-        project_label = ttk.Label(content_frame, text="项目地址: https://github.com/linuxdeepin/dfm-tools",
-                                 font=("Arial", 10), foreground="#4a90e2")
+        project_label = ttk.Label(content_frame, text=f"项目地址: {ProjectConfig.AppInfo.APP_PROJECT_URL}",
+                                 font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                       ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                                 foreground=ProjectConfig.UIStyle.COLOR_PROGRESSBAR)
         project_label.grid(row=12, column=0, pady=(0, 20))
         
         # 底部说明
-        footer_text = ("感谢您使用 DFM 开发工具箱！\n"
-                      "如有问题或建议，欢迎反馈。")
-        footer_label = ttk.Label(content_frame, text=footer_text,
-                                font=("Arial", 10), foreground="#95a5a6", justify="center")
+        footer_label = ttk.Label(content_frame, text=ProjectConfig.AppInfo.APP_FOOTER,
+                                font=(ProjectConfig.UIStyle.FONT_FAMILY,
+                                      ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
+                                foreground="#95a5a6", justify="center")
         footer_label.grid(row=13, column=0, pady=(20, 10))
     
     def get_package_version(self):
@@ -6226,102 +6416,6 @@ read
         except Exception as e:
             self.log_message(f"[版本] 获取版本信息失败: {str(e)}")
             return "1.0.0"  # 默认版本
-
-    def check_and_load_hosts(self):
-        about_tab.columnconfigure(0, weight=1)
-        about_tab.rowconfigure(0, weight=1)
-        
-        # 创建可滚动的内容区域
-        scroll_frame = ScrollableFrame(about_tab)
-        scroll_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        
-        content_frame = scroll_frame.get_frame()
-        content_frame.columnconfigure(0, weight=1)
-        
-        # 软件标题
-        title_label = ttk.Label(content_frame, text="DFM 开发工具箱",
-                               font=("Arial", 20, "bold"), foreground="#2c3e50")
-        title_label.grid(row=0, column=0, pady=(20, 10))
-        
-        # 软件版本
-        version_label = ttk.Label(content_frame, text="版本: 1.0.0",
-                                 font=("Arial", 12), foreground="#7f8c8d")
-        version_label.grid(row=1, column=0, pady=(0, 20))
-        
-        # 分隔线
-        separator1 = ttk.Separator(content_frame, orient="horizontal")
-        separator1.grid(row=2, column=0, sticky="ew", pady=(10, 20))
-        
-        # 软件描述
-        desc_text = ("DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
-                    "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。")
-        desc_label = ttk.Label(content_frame, text=desc_text,
-                              font=("Arial", 11), wraplength=800, justify="center")
-        desc_label.grid(row=3, column=0, pady=(0, 20))
-        
-        # 分隔线
-        separator2 = ttk.Separator(content_frame, orient="horizontal")
-        separator2.grid(row=4, column=0, sticky="ew", pady=(10, 20))
-        
-        # 主要功能列表
-        features_frame = ttk.LabelFrame(content_frame, text="主要功能", padding="15")
-        features_frame.grid(row=5, column=0, sticky="ew", padx=50, pady=(0, 20))
-        features_frame.columnconfigure(0, weight=1)
-        
-        features = [
-            "• 项目管理：支持多项目并行下载、分支管理、依赖安装",
-            "• 软件包管理：批量安装开发工具和调试软件",
-            "• 软件源管理：图形化编辑和管理APT软件源",
-            "• Host管理：便捷的hosts文件编辑和GitHub访问优化",
-            "• SSH配置：SSH服务器配置和密钥管理",
-            "• SSHFS挂载：远程文件系统挂载和管理",
-            "• 系统信息：查看系统硬件和产品信息"
-        ]
-        
-        for i, feature in enumerate(features):
-            feature_label = ttk.Label(features_frame, text=feature,
-                                    font=("Arial", 10), justify="left")
-            feature_label.grid(row=i, column=0, sticky="w", pady=3, padx=10)
-        
-        # 分隔线
-        separator3 = ttk.Separator(content_frame, orient="horizontal")
-        separator3.grid(row=6, column=0, sticky="ew", pady=(10, 20))
-        
-        # 作者信息
-        author_label = ttk.Label(content_frame, text="作者: zhanghongyuan",
-                                font=("Arial", 11, "bold"), foreground="#2c3e50")
-        author_label.grid(row=7, column=0, pady=(0, 5))
-        
-        # 公司信息
-        company_label = ttk.Label(content_frame, text="公司: 统信软件技术有限公司",
-                                 font=("Arial", 10), foreground="#7f8c8d")
-        company_label.grid(row=8, column=0, pady=(0, 5))
-        
-        # 邮箱信息
-        email_label = ttk.Label(content_frame, text="邮箱: zhanghongyuan@uniontech.com",
-                               font=("Arial", 10), foreground="#7f8c8d")
-        email_label.grid(row=9, column=0, pady=(0, 20))
-        
-        # 分隔线
-        separator4 = ttk.Separator(content_frame, orient="horizontal")
-        separator4.grid(row=10, column=0, sticky="ew", pady=(10, 20))
-        
-        # 许可证信息
-        license_label = ttk.Label(content_frame, text="许可证: GNU General Public License v3.0",
-                                 font=("Arial", 10), foreground="#7f8c8d")
-        license_label.grid(row=11, column=0, pady=(0, 5))
-        
-        # 项目地址
-        project_label = ttk.Label(content_frame, text="项目地址: https://gitee.com/sunstom/dfm-tools",
-                                 font=("Arial", 10), foreground="#4a90e2")
-        project_label.grid(row=12, column=0, pady=(0, 20))
-        
-        # 底部说明
-        footer_text = ("感谢您使用 DFM 开发工具箱！\n"
-                      "如有问题或建议，欢迎反馈。")
-        footer_label = ttk.Label(content_frame, text=footer_text,
-                                font=("Arial", 10), foreground="#95a5a6", justify="center")
-        footer_label.grid(row=13, column=0, pady=(20, 10))
 
     def check_and_load_hosts(self):
         """检查并加载hosts文件"""
@@ -6600,7 +6694,7 @@ read
                     return
                 
                 # 移除github.com条目
-                github_entry = "140.82.112.4 github.com"
+                github_entry = ProjectConfig.Network.GITHUB_IP_ENTRY
                 if github_entry in content:
                     # 创建临时文件
                     import tempfile
