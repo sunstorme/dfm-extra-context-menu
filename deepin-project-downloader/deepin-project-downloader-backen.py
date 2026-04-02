@@ -386,7 +386,7 @@ class ProjectConfig:
         APP_AUTHOR = "zhanghongyuan"
         APP_EMAIL = "2063218120@qq.com"
         APP_LICENSE = "GNU General Public License v3.0"
-        APP_PROJECT_URL = "https://github.com/linuxdeepin/dfm-tools"
+        APP_PROJECT_URL = "https://github.com/sunstorme/dfm-tools"
         APP_DESCRIPTION = (
             "DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
             "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。"
@@ -401,6 +401,54 @@ class ProjectConfig:
             "• 系统信息：查看系统硬件和产品信息"
         ]
         APP_FOOTER = "感谢您使用 DFM 开发工具箱！\n如有问题或建议，欢迎反馈。"
+        
+        # 扩展配置规范说明
+        EXTENSION_CONFIG_GUIDE = """配置文件位置: ~/.deepin_project_downloader.json
+
+扩展项目配置 (extra_projects):
+{
+  "extra_projects": {
+    "my-project": {
+      "gitee": "https://gitee.com/user/my-project.git",
+      "github": "https://github.com/user/my-project.git"
+    }
+  }
+}
+
+扩展软件包配置 (extra_packages):
+{
+  "extra_packages": {
+    "my-tool": "我的自定义工具"
+  }
+}
+
+完整配置示例:
+{
+  "save_path": "/home/user/debug",
+  "source": "gitee",
+  "branches": {},
+  "sshfs": {
+    "host": "",
+    "username": "",
+    "remote_path": "/",
+    "local_path": ""
+  },
+  "extra_projects": {
+    "my-project": {
+      "gitee": "https://gitee.com/user/my-project.git",
+      "github": "https://github.com/user/my-project.git"
+    }
+  },
+  "extra_packages": {
+    "my-tool": "我的自定义工具"
+  }
+}
+
+说明:
+• 项目必须包含 gitee 和 github 两个源地址
+• 项目名称不能与内置项目重复
+• 扩展配置会在程序启动时自动加载
+"""
     
     # 网络配置
     class Network:
@@ -1278,7 +1326,55 @@ class DeepinProjectDownloader:
                 else:
                     self.init_messages.append("[配置] 使用默认SSHFS配置")
                 
+                # 加载扩展项目配置
+                extra_projects = config.get('extra_projects', {})
+                if extra_projects:
+                    self.init_messages.append(f"[配置] 加载扩展项目配置: {len(extra_projects)} 个项目")
+                    for project_name, repos in extra_projects.items():
+                        if project_name not in self.project_repos:
+                            # 验证扩展项目格式
+                            if isinstance(repos, dict) and 'gitee' in repos and 'github' in repos:
+                                self.project_repos[project_name] = repos
+                                self.init_messages.append(f"[配置] + 扩展项目: {project_name}")
+                                # 初始化扩展项目的变量
+                                self.project_vars[project_name] = tk.BooleanVar()
+                                self.branch_vars[project_name] = tk.StringVar(value="master")
+                                self.branch_switching[project_name] = False
+                            else:
+                                self.init_messages.append(f"[配置] ! 扩展项目 {project_name} 格式错误，需要包含 gitee 和 github 字段")
+                        else:
+                            self.init_messages.append(f"[配置] ! 扩展项目 {project_name} 已存在，跳过")
+                
+                # 加载扩展软件包配置
+                extra_packages = config.get('extra_packages', {})
+                if extra_packages:
+                    self.init_messages.append(f"[配置] 加载扩展软件包配置: {len(extra_packages)} 个软件包")
+                    for package_name, description in extra_packages.items():
+                        if package_name not in self.packages:
+                            # 验证扩展软件包格式
+                            if isinstance(description, str) and description:
+                                self.packages[package_name] = description
+                                self.init_messages.append(f"[配置] + 扩展软件包: {package_name} - {description}")
+                                # 初始化扩展软件包的变量
+                                self.package_vars[package_name] = tk.BooleanVar(value=True)
+                            else:
+                                self.init_messages.append(f"[配置] ! 扩展软件包 {package_name} 格式错误，描述必须是非空字符串")
+                        else:
+                            self.init_messages.append(f"[配置] ! 扩展软件包 {package_name} 已存在，跳过")
+                
                 self.init_messages.append("[配置] 配置文件加载完成")
+                
+                # 刷新项目列表和软件包列表，显示扩展的项目和软件包
+                if extra_projects or extra_packages:
+                    self.init_messages.append("[配置] 正在刷新界面以显示扩展内容...")
+                    # 更新过滤后的项目列表
+                    self.filtered_projects = list(self.project_repos.keys())
+                    # 更新过滤后的软件包列表
+                    self.filtered_packages = list(self.packages.keys())
+                    # 延迟刷新界面（确保界面已完全创建）
+                    self.root.after(100, self.refresh_project_table)
+                    self.root.after(100, self.refresh_package_table)
+                    self.init_messages.append(f"[配置] 界面刷新完成，共 {len(self.project_repos)} 个项目，{len(self.packages)} 个软件包")
             else:
                 self.saved_branches = {}
                 self.init_messages = [f"[配置] 配置文件不存在: {self.config_file}"]
@@ -1293,6 +1389,20 @@ class DeepinProjectDownloader:
         try:
             self.log_message("[配置] 开始保存配置文件...")
             
+            # 读取现有配置以保留 extra_projects 和 extra_packages
+            existing_extra_projects = {}
+            existing_extra_packages = {}
+            
+            if os.path.exists(self.config_file):
+                try:
+                    with open(self.config_file, 'r', encoding='utf-8') as f:
+                        existing_config = json.load(f)
+                    existing_extra_projects = existing_config.get('extra_projects', {})
+                    existing_extra_packages = existing_config.get('extra_packages', {})
+                    self.log_message(f"[配置] 保留现有扩展配置: {len(existing_extra_projects)} 个项目, {len(existing_extra_packages)} 个软件包")
+                except Exception as e:
+                    self.log_message(f"[配置] 读取现有配置失败: {str(e)}，将创建新配置")
+            
             config = {
                 'save_path': self.save_path.get(),
                 'source': self.source_var.get(),
@@ -1302,7 +1412,9 @@ class DeepinProjectDownloader:
                     'username': self.sshfs_username_var.get(),
                     'remote_path': self.sshfs_remote_path_var.get(),
                     'local_path': self.sshfs_local_path_var.get()
-                }
+                },
+                'extra_projects': existing_extra_projects,
+                'extra_packages': existing_extra_packages
             }
             
             # 保存当前分支选择
@@ -1333,6 +1445,12 @@ class DeepinProjectDownloader:
                 self.log_message(f"[配置] SSHFS远程路径: {sshfs_config['remote_path']}")
             if sshfs_config['local_path']:
                 self.log_message(f"[配置] SSHFS本地路径: {sshfs_config['local_path']}")
+            
+            # 记录扩展配置保存
+            extra_projects_count = len(existing_extra_projects)
+            extra_packages_count = len(existing_extra_packages)
+            if extra_projects_count > 0 or extra_packages_count > 0:
+                self.log_message(f"[配置] 扩展配置已保存: {extra_projects_count} 个项目, {extra_packages_count} 个软件包")
             
         except Exception as e:
             self.log_message(f"[错误] 保存配置失败: {str(e)}")
@@ -6351,12 +6469,65 @@ read
                                  foreground=ProjectConfig.UIStyle.COLOR_PROGRESSBAR)
         project_label.grid(row=12, column=0, pady=(0, 20))
         
+        # 分隔线
+        separator5 = ttk.Separator(content_frame, orient="horizontal")
+        separator5.grid(row=13, column=0, sticky="ew", pady=(20, 20))
+        
+        # 扩展配置规范说明
+        extension_frame = ttk.LabelFrame(content_frame, text="扩展配置规范", padding="15")
+        extension_frame.grid(row=14, column=0, sticky="ew", padx=50, pady=(0, 20))
+        extension_frame.columnconfigure(0, weight=1)
+        
+        # 创建只读文本框容器
+        text_container = ttk.Frame(extension_frame)
+        text_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        text_container.columnconfigure(0, weight=1)
+        text_container.rowconfigure(0, weight=1)
+        
+        # 创建只读文本框 - 使用更适合中文的字体
+        extension_text = tk.Text(text_container,
+                                height=25,
+                                font=("DejaVu Sans Mono", 10),  # 使用支持中文的等宽字体
+                                wrap=tk.WORD,
+                                background="#f8f9fa",
+                                foreground="#2c3e50",
+                                relief="solid",
+                                borderwidth=1,
+                                spacing1=5,  # 段前间距
+                                spacing2=5,  # 行间距
+                                spacing3=5)  # 段后间距
+        extension_text.grid(row=0, column=0, sticky="nsew")
+        
+        # 插入文本内容 - 从 ProjectConfig 读取
+        extension_text.insert("1.0", ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
+        extension_text.config(state=tk.DISABLED)  # 设置为只读
+        
+        # 创建垂直滚动条
+        v_scrollbar = ttk.Scrollbar(text_container, orient="vertical", command=extension_text.yview)
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        extension_text.config(yscrollcommand=v_scrollbar.set)
+        
+        # 创建水平滚动条
+        h_scrollbar = ttk.Scrollbar(text_container, orient="horizontal", command=extension_text.xview)
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        extension_text.config(xscrollcommand=h_scrollbar.set)
+        
+        # 添加复制按钮
+        def copy_extension_config():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
+            self.root.update()
+            messagebox.showinfo("成功", "扩展配置规范已复制到剪贴板")
+        
+        copy_btn = ttk.Button(extension_frame, text="复制配置规范", command=copy_extension_config, style='Primary.TButton')
+        copy_btn.pack(pady=(5, 0))
+        
         # 底部说明
         footer_label = ttk.Label(content_frame, text=ProjectConfig.AppInfo.APP_FOOTER,
                                 font=(ProjectConfig.UIStyle.FONT_FAMILY,
                                       ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
                                 foreground="#95a5a6", justify="center")
-        footer_label.grid(row=13, column=0, pady=(20, 10))
+        footer_label.grid(row=15, column=0, pady=(20, 10))
     
     def get_package_version(self):
         """获取软件包版本信息"""
