@@ -1,3 +1,15 @@
+dfm-tools-plugins (1.5.5) unstable; urgency=medium
+
+  * chore: Update version to 1.5.5
+  * style(icons): redesign application icons with consistent visual style
+  * feat(build): enhance DEB build system with parallel support and package management
+  * feat(ui): add project history feature and improve logging structure
+  * feat(config): add support for custom extension projects and packages
+  * refactor(config): centralize configuration constants into dedicated ProjectConfig class
+  * refactor(gui): restructure application architecture and enhance UI features
+
+ -- zhanghongyuan <zhanghongyuan@uniontech.com>  Thu, 02 Apr 2026 17:21:22 +0800
+
 dfm-tools-plugins (1.5.4-1) unstable; urgency=medium
 
   * chore: Update version to 1.5.4-1
