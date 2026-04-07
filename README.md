@@ -1,7 +1,6 @@
 # DDE File Manager Extra Context Menu Plugins
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.4.7-blue.svg)](https://gitee.com/sunstom/dfm-extra-context-menu)
 
 为深度桌面环境（DDE）文件管理器提供额外上下文菜单插件的集合，增强开发者的工作效率。
 
@@ -75,61 +74,90 @@ sudo apt install dfm-tools-integration-all
 - `SingleDir` - 单个目录右键菜单
 - `MultiFileDirs` - 多文件/目录右键菜单
 
-## 项目结构
+## 插件规范与贡献
+
+本项目欢迎社区贡献新的右键菜单插件。每个插件是一个独立目录，遵循以下约定：
+
+### 目录结构规范
 
 ```
-dfm-tools-plugins/
-├── LICENSE                    # MIT 许可证
-├── README.md                  # 项目说明文档
-├── build-deb/                 # DEB 包构建工具
-│   ├── deb-builder-launcher.sh # 快速构建脚本
-│   ├── deb-builder.desktop    # DEB 构建器菜单项
-│   └── deb-package-icon.svg   # 图标文件
-├── deb-saver/                 # DEB 包保存器
-│   ├── deb-saver.desktop      # DEB 保存器菜单项
-│   ├── deb-saver-launcher.sh  # DEB 保存器启动脚本
-│   ├── deb-saver.py           # DEB 保存器主程序
-│   └── deb-saver-icon.svg     # 图标文件
-├── cat-gitk/                  # Gitk 集成
-│   ├── gitk.desktop           # Gitk 菜单项
-│   ├── gitk-launcher.sh       # Gitk 启动脚本
-│   └── gitk-icon.svg          # 图标文件
-├── git-cola/                  # Git Cola 集成
-│   └── git-cola.desktop       # Git Cola 菜单项
-├── vscode/                    # Visual Studio Code 集成
-│   ├── vscode.desktop         # VSCode 菜单项
-│   ├── vscode-launcher.sh     # VSCode 启动脚本
-│   └── vscode-icon.svg        # 图标文件
-├── qtcreator/                # Qt Creator 集成
-│   ├── qtcreator.desktop      # Qt Creator 菜单项
-│   ├── qtcreator-launcher.sh  # Qt Creator 启动脚本
-│   └── qtcreator-icon.svg     # 图标文件
-├── dde-dconfig-editor/        # DConfig 编辑器
-│   ├── dde-dconfig-editor.desktop
-│   └── dde-dconfig-editor.svg
-├── d-feet/                    # D-Feet D-Bus 调试器
-│   ├── d-feet.desktop
-│   └── d-feet.svg
-├── deepin-project-downloader/ # 项目下载器
-│   ├── deepin-project-downloader.desktop
-│   ├── deepin-project-downloader-backen.py
-│   ├── deepin-project-downloader-launcher.sh
-│   └── deepin-project-downloader.svg
-├── integration-all/           # 集成菜单
-│   ├── integration-all.desktop
-│   └── integration.svg
-├── debian-changelog/          # 更新日志工具
-│   ├── changelog-update.desktop
-│   ├── changelog-updater-launcher.sh
-│   ├── debian_version_gui.py
-│   ├── debian_version_update.py
-│   └── update-changelog.svg
-└── debian/                    # Debian 打包配置
-    ├── changelog
-    ├── control
-    ├── rules
-    └── *.install 文件
+插件名/
+├── 插件名.desktop          # 必需 - FreeDesktop 桌面入口文件
+├── 插件名-launcher.sh      # 可选 - 启动脚本（需可执行权限）
+├── 插件名-icon.svg         # 必需 - 插件图标（SVG 格式）
+└── 其他所需文件             # Python 脚本、配置文件等
 ```
+
+### 开发规则
+
+- **命名规范**：目录和文件使用小写字母加连字符（如 `deb-saver`）
+- **Desktop 文件**：必须包含正确的 `Actions` 和 DDE 文件管理器菜单类型（`EmptyArea`、`SingleDir`、`MultiFileDirs`）
+- **启动脚本**：使用 `.sh` 脚本包装调用，处理路径和参数传递
+- **图标**：统一使用 SVG 格式，风格与现有插件保持一致
+- **打包**：新增插件需同步更新 `debian/` 目录下的相关文件（见下方 Debian 打包规范）
+- **依赖**：在 `debian/control` 中声明功能依赖，不硬编码路径
+
+### Debian 打包规范
+
+新增插件时，需要在 `debian/` 目录下创建以下文件（以 `dfm-tools-xxx` 为例）：
+
+```
+debian/
+├── control                           # 必需 - 添加新的 Package 段落
+├── changelog                         # 必需 - 记录版本变更
+├── rules                             # 一般不需修改 - 标准 dh 构建流程
+├── dfm-tools-xxx.install             # 必需 - 声明文件安装路径
+├── dfm-tools-xxx.postinst            # 必需 - 注册插件到集成菜单
+└── dfm-tools-xxx.prerm               # 必需 - 从集成菜单注销插件
+```
+
+#### 1. `dfm-tools-xxx.install` — 文件安装映射
+
+每行格式：`源路径 目标安装路径`
+
+```
+xxx/xxx.desktop          usr/share/deepin/dde-file-manager/oem-menuextensions
+xxx/xxx-launcher.sh      usr/bin
+xxx/xxx-icon.svg         usr/share/dfm-tools-plugins
+```
+
+- `.desktop` 文件安装到 DDE 文件管理器的菜单扩展目录
+- 启动脚本安装到 `/usr/bin`
+- 图标安装到 `/usr/share/dfm-tools-plugins`
+
+#### 2. `dfm-tools-xxx.postinst` — 安装后脚本
+
+Python 脚本，负责将插件注册到 `integration-all.desktop` 的集成菜单中。核心逻辑：
+
+- 从脚本文件名自动提取插件名（`dfm-tools-xxx.postinst` → `xxx`）
+- 在 `Actions=` 行追加插件名
+- 添加 `[Desktop Action xxx]` 段落，配置菜单项名称、执行命令和图标
+
+可参考现有插件的 `.postinst` 文件（如 [dfm-tools-deb-builder.postinst](debian/dfm-tools-deb-builder.postinst)），复制后无需修改，插件名会自动从文件名提取。
+
+#### 3. `dfm-tools-xxx.prerm` — 卸载前脚本
+
+与 `postinst` 相反，负责从集成菜单中移除插件。逻辑：
+
+- 从 `Actions=` 行删除插件名
+- 移除对应的 `[Desktop Action xxx]` 段落
+
+同样可复制现有 `.prerm` 文件直接使用。
+
+#### 4. `debian/control` — 包定义
+
+每个插件需添加一个 `Package` 段落：
+
+```debcontrol
+Package: dfm-tools-xxx
+Architecture: all
+Depends: ${misc:Depends},
+  插件所需依赖
+Description: 简短描述
+ 详细描述
+```
+
+同时需要在元包 `dfm-tools-plugins` 和 `dfm-tools-integration-all` 的 `Depends` 中添加 `dfm-tools-xxx`。
 
 ## 开发构建
 
@@ -174,23 +202,6 @@ dpkg-buildpackage -us -uc -b
 # 构建后不清理缓存
 ./build-deb/deb-builder-launcher.sh . no
 ```
-
-## 版本历史
-- **v1.5.0** (2026-01-19) - 更新项目名称
-- **v1.4.9** (2025-11-29) - 更新 gitee 获取项目的源链接
-- **v1.4.8** (2025-11-29) - 添加 deb 包下载功能
-- **v1.4.7** (2025-11-29) - 添加 CPU 核心和系统信息显示功能，新增 DEB 包保存器插件
-- **v1.4.6** (2025-11-20) - 移除不必要的依赖项
-- **v1.4.5** (2025-11-13) - 更新图标和修复安装文件中的注释格式
-- **v1.4.4** (2025-11-12) - 添加 Visual Studio Code 和 Qt Creator 插件，统一通知系统
-- **v1.4.3** (2025-11-11) - 添加独立插件包和自动化菜单集成
-- **v1.4.2** (2025-11-11) - 添加项目文档，增强并行构建选项和自动构建缓存清理
-- **v1.4.1** (2025-11-07) - 添加媒体调试器仓库链接
-- **v1.4** (2025-11-04) - 重命名包名为 dfm-xmenu-* 模式，更新安装路径
-- **v1.3** (2025-10-31) - 添加 D-Feet D-Bus 调试器，改进包配置，模块化 Debian 包结构
-- **v1.2** (2025-10-30) - 添加 D-Feet D-Bus 调试器集成
-- **v1.1** (2025-10-27) - 添加 Deepin 项目下载器
-- **v1.0** (2025-10-27) - 初始版本发布，包含 Gitk、Git Cola 和 DEB 包构建工具
 
 ## 依赖关系
 

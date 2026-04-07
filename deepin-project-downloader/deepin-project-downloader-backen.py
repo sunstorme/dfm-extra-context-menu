@@ -4,7 +4,7 @@
 DFM 开发工具箱 - Deepin Project Downloader Backend
 
 这是一个专为深度开发者设计的集成开发工具，提供项目管理、软件包管理、
-源码管理、SSH配置、Host管理等多项功能。
+源码管理、SSH配置、配置与工具等多项功能。
 
 Author: zhanghongyuan
 Email: zhanghongyuan@uniontech.com
@@ -359,6 +359,7 @@ class ProjectConfig:
         """路径配置类"""
         CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "deepin-project-downloader")
         CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".deepin_project_downloader.json")
+        BASHRC_FILE = os.path.join(os.path.expanduser("~"), ".bashrc")
     
     # 线程池配置
     class ThreadPool:
@@ -394,13 +395,13 @@ class ProjectConfig:
         APP_PROJECT_URL = "https://github.com/sunstorme/dfm-tools"
         APP_DESCRIPTION = (
             "DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
-            "提供项目管理、软件包管理、源码管理、SSH配置、Host管理等多项功能。"
+            "提供项目管理、软件包管理、源码管理、SSH配置、配置与工具等多项功能。"
         )
         APP_FEATURES = [
             "• 项目管理：支持多项目并行下载、分支管理、依赖安装",
             "• 软件包管理：批量安装开发工具和调试软件",
             "• 软件源管理：图形化编辑和管理APT软件源",
-            "• Host管理：便捷的hosts文件编辑和GitHub访问优化",
+            "• 配置与工具：便捷的hosts编辑、bashrc配置和Ping网络测试",
             "• SSH配置：SSH服务器配置和密钥管理",
             "• SSHFS挂载：远程文件系统挂载和管理",
             "• 系统信息：查看系统硬件和产品信息"
@@ -2225,14 +2226,14 @@ class DeepinProjectDownloader:
         # 创建软件源管理界面
         self.create_sources_management(sources_tab)
 
-        # Host管理标签页
-        host_tab = ttk.Frame(notebook)
-        notebook.add(host_tab, text="Host管理")
-        host_tab.columnconfigure(0, weight=1)
-        host_tab.rowconfigure(0, weight=1)
-        
-        # 创建Host管理界面
-        self.create_host_management(host_tab)
+        # 配置与工具标签页
+        config_tools_tab = ttk.Frame(notebook)
+        notebook.add(config_tools_tab, text="配置与工具")
+        config_tools_tab.columnconfigure(0, weight=1)
+        config_tools_tab.rowconfigure(0, weight=1)
+
+        # 创建配置与工具界面
+        self.create_config_tools(config_tools_tab)
         
         # 关于软件标签页
         about_tab = ttk.Frame(notebook)
@@ -6261,6 +6262,20 @@ class DeepinProjectDownloader:
                     result_text = message[1]
                     self.ping_result_text.insert(tk.END, result_text)
                     self.ping_result_text.see(tk.END)  # 自动滚动到底部
+                elif message[0] == "bashrc_content":
+                    content = message[1]
+                    self.bashrc_text.delete(1.0, tk.END)
+                    self.bashrc_text.insert(1.0, content)
+                elif message[0] == "bashrc_status":
+                    status = message[1]
+                    if status == "文件不存在":
+                        self.bashrc_file_label.config(text=f"{ProjectConfig.Path.BASHRC_FILE} (文件不存在)", foreground="red")
+                    elif status == "权限不足":
+                        self.bashrc_file_label.config(text=f"{ProjectConfig.Path.BASHRC_FILE} (权限不足)", foreground="orange")
+                    elif status == "读取错误":
+                        self.bashrc_file_label.config(text=f"{ProjectConfig.Path.BASHRC_FILE} (读取错误)", foreground="orange")
+                    else:
+                        self.bashrc_file_label.config(text=ProjectConfig.Path.BASHRC_FILE, foreground="black")
                 elif message[0] == "sshfs_status":
                     status = message[1]
                     self.sshfs_status_var.set(status)
@@ -6281,8 +6296,8 @@ class DeepinProjectDownloader:
         # 每100ms检查一次消息队列
         self.root.after(100, self.process_queue)
 
-    def create_host_management(self, parent):
-        """创建Host管理界面"""
+    def create_config_tools(self, parent):
+        """创建配置与工具界面"""
         # 主容器
         main_container = ttk.Frame(parent)
         main_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -6296,44 +6311,52 @@ class DeepinProjectDownloader:
         button_frame.grid(row=0, column=0, sticky="ew", pady=(0, 5))
         
         # 保存按钮
-        self.save_host_btn = ttk.Button(button_frame, text="保存Host配置", command=self.save_host_config, style='Success.TButton')
-        self.save_host_btn.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # 清理github.com条目按钮
-        self.cleanup_github_btn = ttk.Button(button_frame, text="清理GitHub条目", command=self.cleanup_github_entry, style='Warning.TButton')
-        self.cleanup_github_btn.pack(side=tk.LEFT, padx=(0, 10))
-        
+        self.save_config_btn = ttk.Button(button_frame, text="保存配置", command=self.save_config_generic, style='Success.TButton')
+        self.save_config_btn.pack(side=tk.LEFT, padx=(0, 10))
+
         # 重新加载按钮
-        self.reload_host_btn = ttk.Button(button_frame, text="重新加载", command=self.reload_hosts, style='Primary.TButton')
-        self.reload_host_btn.pack(side=tk.LEFT, padx=(0, 10))
-        
+        self.reload_config_btn = ttk.Button(button_frame, text="重新加载", command=self.reload_config_generic, style='Primary.TButton')
+        self.reload_config_btn.pack(side=tk.LEFT, padx=(0, 10))
+
         # 备份当前配置按钮
-        self.backup_host_btn = ttk.Button(button_frame, text="备份当前配置", command=self.backup_hosts, style='Primary.TButton')
-        self.backup_host_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.backup_config_btn = ttk.Button(button_frame, text="备份当前配置", command=self.backup_config_generic, style='Primary.TButton')
+        self.backup_config_btn.pack(side=tk.LEFT, padx=(0, 10))
         
         # 创建Notebook用于多tab切换
-        self.host_notebook = ttk.Notebook(main_container)
-        self.host_notebook.grid(row=1, column=0, sticky="nsew")
+        self.config_notebook = ttk.Notebook(main_container)
+        self.config_notebook.grid(row=1, column=0, sticky="nsew")
         
         # 初始化变量
         self.ping_process = None
         self.host_file_path = "/etc/hosts"
-        self.host_editors = {}  # 存储编辑器引用
+        self.config_editors = {}  # 存储编辑器引用
         
         # 创建Host配置tab
         self.create_host_config_tab()
-        
+
+        # 创建bashrc配置tab
+        self.create_bashrc_config_tab()
+
         # 创建Ping工具tab
         self.create_ping_tool_tab()
-        
+
+        # 创建扩展配置说明tab
+        self.create_extension_config_tab()
+
+        # 绑定tab切换事件，动态更新按钮状态
+        self.config_notebook.bind("<<NotebookTabChanged>>", self._on_config_notebook_tab_changed)
+
         # 启动时检查hosts文件
         self.root.after(500, self.check_and_load_hosts)
+
+        # 启动时加载bashrc文件
+        self.root.after(600, self.check_and_load_bashrc)
 
     def create_host_config_tab(self):
         """创建Host配置tab"""
         # 创建Host配置tab
-        host_config_tab = ttk.Frame(self.host_notebook)
-        self.host_notebook.add(host_config_tab, text="Host配置")
+        host_config_tab = ttk.Frame(self.config_notebook)
+        self.config_notebook.add(host_config_tab, text="Host配置")
         host_config_tab.columnconfigure(0, weight=1)
         host_config_tab.rowconfigure(1, weight=1)
         
@@ -6350,13 +6373,32 @@ class DeepinProjectDownloader:
         self.host_text.grid(row=1, column=0, sticky="nsew")
         
         # 存储编辑器引用
-        self.host_editors["/etc/hosts"] = self.host_text
+        self.config_editors["/etc/hosts"] = self.host_text
+
+    def create_bashrc_config_tab(self):
+        """创建bashrc配置tab"""
+        bashrc_tab = ttk.Frame(self.config_notebook)
+        self.config_notebook.add(bashrc_tab, text="bashrc配置")
+        bashrc_tab.columnconfigure(0, weight=1)
+        bashrc_tab.rowconfigure(1, weight=1)
+
+        # 文件路径标签
+        self.bashrc_file_label = ttk.Label(bashrc_tab, text=ProjectConfig.Path.BASHRC_FILE, style='FilePath.TLabel')
+        self.bashrc_file_label.grid(row=0, column=0, sticky="w", pady=(0, 2))
+
+        # 文本编辑框 - 使用通用增强方法
+        self.bashrc_text = self.create_enhanced_text_editor(
+            bashrc_tab,
+            wrap=tk.WORD,
+            height=20
+        )
+        self.bashrc_text.grid(row=1, column=0, sticky="nsew")
 
     def create_ping_tool_tab(self):
         """创建Ping工具tab"""
         # 创建Ping工具tab
-        ping_tab = ttk.Frame(self.host_notebook)
-        self.host_notebook.add(ping_tab, text="Ping工具")
+        ping_tab = ttk.Frame(self.config_notebook)
+        self.config_notebook.add(ping_tab, text="Ping工具")
         ping_tab.columnconfigure(0, weight=1)
         ping_tab.rowconfigure(1, weight=1)
         
@@ -6391,6 +6433,57 @@ class DeepinProjectDownloader:
             height=15
         )
         self.ping_result_text.grid(row=0, column=0, sticky="nsew")
+
+    def create_extension_config_tab(self):
+        """创建扩展配置说明tab"""
+        ext_tab = ttk.Frame(self.config_notebook)
+        self.config_notebook.add(ext_tab, text="扩展配置说明")
+        ext_tab.columnconfigure(0, weight=1)
+        ext_tab.rowconfigure(0, weight=1)
+
+        # 创建只读文本框容器
+        text_container = ttk.Frame(ext_tab)
+        text_container.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        text_container.columnconfigure(0, weight=1)
+        text_container.rowconfigure(0, weight=1)
+
+        # 创建只读文本框
+        extension_text = tk.Text(text_container,
+                                height=25,
+                                font=("DejaVu Sans Mono", 9),
+                                wrap=tk.WORD,
+                                background="#ffffff",
+                                foreground="#003061",
+                                relief="solid",
+                                borderwidth=1,
+                                spacing1=1,
+                                spacing2=1,
+                                spacing3=1)
+        extension_text.grid(row=0, column=0, sticky="nsew")
+
+        # 插入文本内容
+        extension_text.insert("1.0", ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
+        extension_text.config(state=tk.DISABLED)
+
+        # 垂直滚动条
+        v_scrollbar = ttk.Scrollbar(text_container, orient="vertical", command=extension_text.yview)
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        extension_text.config(yscrollcommand=v_scrollbar.set)
+
+        # 水平滚动条
+        h_scrollbar = ttk.Scrollbar(text_container, orient="horizontal", command=extension_text.xview)
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        extension_text.config(xscrollcommand=h_scrollbar.set)
+
+        # 复制按钮
+        def copy_extension_config():
+            self.root.clipboard_clear()
+            self.root.clipboard_append(ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
+            self.root.update()
+            messagebox.showinfo("成功", "扩展配置规范已复制到剪贴板")
+
+        copy_btn = ttk.Button(ext_tab, text="复制配置规范", command=copy_extension_config, style='Primary.TButton')
+        copy_btn.grid(row=1, column=0, pady=(0, 5))
 
     def create_about_tab(self, parent):
         """创建关于软件tab"""
@@ -6480,66 +6573,13 @@ class DeepinProjectDownloader:
                                        ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
                                  foreground=ProjectConfig.UIStyle.COLOR_PROGRESSBAR)
         project_label.grid(row=12, column=0, pady=(0, 20))
-        
-        # 分隔线
-        separator5 = ttk.Separator(content_frame, orient="horizontal")
-        separator5.grid(row=13, column=0, sticky="ew", pady=(20, 20))
-        
-        # 扩展配置规范说明
-        extension_frame = ttk.LabelFrame(content_frame, text="扩展配置规范", padding="15")
-        extension_frame.grid(row=14, column=0, sticky="ew", padx=50, pady=(0, 20))
-        extension_frame.columnconfigure(0, weight=1)
-        
-        # 创建只读文本框容器
-        text_container = ttk.Frame(extension_frame)
-        text_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        text_container.columnconfigure(0, weight=1)
-        text_container.rowconfigure(0, weight=1)
-        
-        # 创建只读文本框 - 使用更适合中文的字体
-        extension_text = tk.Text(text_container,
-                                height=25,
-                                font=("DejaVu Sans Mono", 10),  # 使用支持中文的等宽字体
-                                wrap=tk.WORD,
-                                background="#f8f9fa",
-                                foreground="#2c3e50",
-                                relief="solid",
-                                borderwidth=1,
-                                spacing1=5,  # 段前间距
-                                spacing2=5,  # 行间距
-                                spacing3=5)  # 段后间距
-        extension_text.grid(row=0, column=0, sticky="nsew")
-        
-        # 插入文本内容 - 从 ProjectConfig 读取
-        extension_text.insert("1.0", ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
-        extension_text.config(state=tk.DISABLED)  # 设置为只读
-        
-        # 创建垂直滚动条
-        v_scrollbar = ttk.Scrollbar(text_container, orient="vertical", command=extension_text.yview)
-        v_scrollbar.grid(row=0, column=1, sticky="ns")
-        extension_text.config(yscrollcommand=v_scrollbar.set)
-        
-        # 创建水平滚动条
-        h_scrollbar = ttk.Scrollbar(text_container, orient="horizontal", command=extension_text.xview)
-        h_scrollbar.grid(row=1, column=0, sticky="ew")
-        extension_text.config(xscrollcommand=h_scrollbar.set)
-        
-        # 添加复制按钮
-        def copy_extension_config():
-            self.root.clipboard_clear()
-            self.root.clipboard_append(ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
-            self.root.update()
-            messagebox.showinfo("成功", "扩展配置规范已复制到剪贴板")
-        
-        copy_btn = ttk.Button(extension_frame, text="复制配置规范", command=copy_extension_config, style='Primary.TButton')
-        copy_btn.pack(pady=(5, 0))
-        
+
         # 底部说明
         footer_label = ttk.Label(content_frame, text=ProjectConfig.AppInfo.APP_FOOTER,
                                 font=(ProjectConfig.UIStyle.FONT_FAMILY,
                                       ProjectConfig.UIStyle.FONT_SIZE_NORMAL),
                                 foreground="#95a5a6", justify="center")
-        footer_label.grid(row=15, column=0, pady=(20, 10))
+        footer_label.grid(row=13, column=0, pady=(20, 10))
     
     def get_package_version(self):
         """获取软件包版本信息"""
@@ -6615,30 +6655,7 @@ class DeepinProjectDownloader:
                 try:
                     with open(self.host_file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
-                    
-                    # 检查是否包含github.com条目
-                    github_entry = "140.82.112.4 github.com"
-                    if github_entry not in content:
-                        self.message_queue.put(("log", "[Host] [信息] 未找到github.com条目，将在文件末尾添加"))
-                        content += f"\n\n{github_entry}\n"
-                        
-                        # 使用pkexec添加条目
-                        add_cmd = ["pkexec", "sh", "-c", f"echo '{github_entry}' >> {self.host_file_path}"]
-                        result = subprocess.run(add_cmd, capture_output=True, text=True, timeout=30)
-                        
-                        if result.returncode == 0:
-                            self.message_queue.put(("log", "[Host] [成功] 已添加github.com条目到hosts文件"))
-                            # 重新读取文件内容
-                            with open(self.host_file_path, 'r', encoding='utf-8') as f:
-                                content = f.read()
-                        else:
-                            if "cancelled" in result.stderr.lower():
-                                self.message_queue.put(("log", "[Host] [取消] 用户取消了添加github.com条目的权限授权"))
-                            else:
-                                self.message_queue.put(("log", f"[Host] 添加github.com条目失败: {result.stderr}"))
-                    else:
-                        self.message_queue.put(("log", "[Host] [信息] hosts文件中已存在github.com条目"))
-                    
+
                     self.message_queue.put(("host_content", content))
                     self.message_queue.put(("host_status", "文件正常"))
                     
@@ -6654,136 +6671,241 @@ class DeepinProjectDownloader:
         
         threading.Thread(target=check_task, daemon=True).start()
 
-    def save_host_config(self):
-        """保存hosts配置"""
+    def check_and_load_bashrc(self):
+        """检查并加载bashrc文件"""
+        def check_task():
+            try:
+                bashrc_path = ProjectConfig.Path.BASHRC_FILE
+                self.message_queue.put(("log", "[bashrc] [信息] 正在加载bashrc文件..."))
+
+                if not os.path.exists(bashrc_path):
+                    self.message_queue.put(("log", "[bashrc] [信息] bashrc文件不存在"))
+                    self.message_queue.put(("bashrc_status", "文件不存在"))
+                    return
+
+                try:
+                    with open(bashrc_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    self.message_queue.put(("bashrc_content", content))
+                    self.message_queue.put(("bashrc_status", "文件正常"))
+
+                except PermissionError:
+                    self.message_queue.put(("log", "[bashrc] [错误] 没有权限读取bashrc文件"))
+                    self.message_queue.put(("bashrc_status", "权限不足"))
+                except Exception as e:
+                    self.message_queue.put(("log", f"[bashrc] 读取bashrc文件时出错: {str(e)}"))
+                    self.message_queue.put(("bashrc_status", "读取错误"))
+
+            except Exception as e:
+                self.message_queue.put(("log", f"[bashrc] 加载bashrc文件时出错: {str(e)}"))
+
+        threading.Thread(target=check_task, daemon=True).start()
+
+    def _on_config_notebook_tab_changed(self, event):
+        """配置与工具notebook tab切换时更新按钮状态"""
+        info = self._get_current_config_info()
+        if info is None:
+            # Ping工具或扩展配置说明 tab，禁用配置操作按钮
+            self.save_config_btn.config(state=tk.DISABLED)
+            self.reload_config_btn.config(state=tk.DISABLED)
+            self.backup_config_btn.config(state=tk.DISABLED)
+        else:
+            self.save_config_btn.config(state=tk.NORMAL)
+            self.reload_config_btn.config(state=tk.NORMAL)
+            self.backup_config_btn.config(state=tk.NORMAL)
+
+    def _get_current_config_info(self):
+        """获取当前激活tab对应的配置信息
+
+        返回:
+            dict: 包含 editor, file_path, label, needs_elevation, file_label, content_msg, status_msg 的字典
+            None: 当前tab没有可操作的配置
+        """
+        current_tab = self.config_notebook.index(self.config_notebook.select())
+        # tab 0: Host配置, tab 1: bashrc配置, tab 2: Ping工具, tab 3: 扩展配置说明
+        if current_tab == 0:
+            return {
+                "editor": self.host_text,
+                "file_path": self.host_file_path,
+                "label": "Host",
+                "needs_elevation": True,
+                "file_label": self.host_file_label,
+                "content_msg": "host_content",
+                "status_msg": "host_status",
+                "file_name": "hosts",
+            }
+        elif current_tab == 1:
+            return {
+                "editor": self.bashrc_text,
+                "file_path": ProjectConfig.Path.BASHRC_FILE,
+                "label": "bashrc",
+                "needs_elevation": False,
+                "file_label": self.bashrc_file_label,
+                "content_msg": "bashrc_content",
+                "status_msg": "bashrc_status",
+                "file_name": ".bashrc",
+            }
+        return None
+
+    def save_config_generic(self):
+        """通用保存配置方法 - 根据当前激活tab保存对应配置"""
+        info = self._get_current_config_info()
+        if info is None:
+            return
+
+        label = info["label"]
+        file_path = info["file_path"]
+        editor = info["editor"]
+        needs_elevation = info["needs_elevation"]
+
         def save_task():
             try:
                 self.message_queue.put(("progress", "start"))
-                self.message_queue.put(("status", "正在保存hosts配置..."))
-                self.message_queue.put(("log", "[Host] [开始] 开始保存hosts配置"))
-                
-                # 获取编辑器内容
-                content = self.host_text.get(1.0, tk.END).rstrip('\n')
-                
-                # 创建临时文件
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as temp_file:
-                    temp_file.write(content)
-                    temp_path = temp_file.name
-                
-                # 使用pkexec复制文件
-                copy_cmd = ["pkexec", "cp", temp_path, self.host_file_path]
-                result = subprocess.run(copy_cmd, capture_output=True, text=True, timeout=30)
-                
-                # 清理临时文件
-                os.unlink(temp_path)
-                
-                if result.returncode == 0:
-                    self.message_queue.put(("log", "[Host] [成功] hosts配置已保存"))
-                else:
-                    if "cancelled" in result.stderr.lower():
-                        self.message_queue.put(("log", "[Host] [取消] 用户取消了权限授权"))
+                self.message_queue.put(("status", f"正在保存{label}配置..."))
+                self.message_queue.put(("log", f"[{label}] [开始] 开始保存{label}配置"))
+
+                content = editor.get(1.0, tk.END).rstrip('\n')
+
+                if needs_elevation:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as temp_file:
+                        temp_file.write(content)
+                        temp_path = temp_file.name
+
+                    copy_cmd = ["pkexec", "cp", temp_path, file_path]
+                    result = subprocess.run(copy_cmd, capture_output=True, text=True, timeout=30)
+
+                    os.unlink(temp_path)
+
+                    if result.returncode == 0:
+                        self.message_queue.put(("log", f"[{label}] [成功] {label}配置已保存"))
                     else:
-                        self.message_queue.put(("log", f"[Host] [失败] 保存hosts配置失败: {result.stderr}"))
-                
+                        if "cancelled" in result.stderr.lower():
+                            self.message_queue.put(("log", f"[{label}] [取消] 用户取消了权限授权"))
+                        else:
+                            self.message_queue.put(("log", f"[{label}] [失败] 保存{label}配置失败: {result.stderr}"))
+                else:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    self.message_queue.put(("log", f"[{label}] [成功] {label}配置已保存"))
+
             except Exception as e:
-                self.message_queue.put(("log", f"[Host] [错误] 保存hosts配置时出错: {str(e)}"))
+                self.message_queue.put(("log", f"[{label}] [错误] 保存{label}配置时出错: {str(e)}"))
             finally:
                 self.message_queue.put(("progress", "stop"))
-                self.message_queue.put(("status", "hosts配置操作完成"))
-        
-        # 确认对话框
+                self.message_queue.put(("status", f"{label}配置操作完成"))
+
         response = messagebox.askyesno(
-            "确认保存Hosts配置",
-            "此操作将保存hosts文件配置。\n\n"
-            "[注意] 错误的hosts配置可能影响网络连接！\n\n"
-            "是否继续？",
+            f"确认保存{label}配置",
+            f"此操作将保存{label}文件配置。\n\n"
+            f"是否继续？",
             icon="warning"
         )
-        
+
         if response:
             threading.Thread(target=save_task, daemon=True).start()
 
-    def reload_hosts(self):
-        """重新加载hosts文件"""
+    def reload_config_generic(self):
+        """通用重新加载方法 - 根据当前激活tab重新加载对应配置"""
+        info = self._get_current_config_info()
+        if info is None:
+            return
+
+        label = info["label"]
+        file_path = info["file_path"]
+        content_msg = info["content_msg"]
+        status_msg = info["status_msg"]
+
         def reload_task():
             try:
                 self.message_queue.put(("progress", "start"))
-                self.message_queue.put(("status", "正在重新加载hosts文件..."))
-                self.message_queue.put(("log", "[Host] [开始] 重新加载hosts文件"))
-                
-                if not os.path.exists(self.host_file_path):
-                    self.message_queue.put(("log", "[Host] [失败] hosts文件不存在"))
-                    self.message_queue.put(("host_status", "文件不存在"))
+                self.message_queue.put(("status", f"正在重新加载{label}文件..."))
+                self.message_queue.put(("log", f"[{label}] [开始] 重新加载{label}文件"))
+
+                if not os.path.exists(file_path):
+                    self.message_queue.put(("log", f"[{label}] [失败] {label}文件不存在"))
+                    self.message_queue.put((status_msg, "文件不存在"))
                     return
-                
-                # 读取hosts文件内容
+
                 try:
-                    with open(self.host_file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
-                    
-                    self.message_queue.put(("host_content", content))
-                    self.message_queue.put(("host_status", "文件正常"))
-                    self.message_queue.put(("log", "[Host] [成功] hosts文件重新加载完成"))
-                    
+
+                    self.message_queue.put((content_msg, content))
+                    self.message_queue.put((status_msg, "文件正常"))
+                    self.message_queue.put(("log", f"[{label}] [成功] {label}文件重新加载完成"))
+
                 except PermissionError:
-                    self.message_queue.put(("log", "[Host] [失败] 没有权限读取hosts文件"))
-                    self.message_queue.put(("host_status", "权限不足"))
+                    self.message_queue.put(("log", f"[{label}] [失败] 没有权限读取{label}文件"))
+                    self.message_queue.put((status_msg, "权限不足"))
                 except Exception as e:
-                    self.message_queue.put(("log", f"[Host] [失败] 读取hosts文件时出错: {str(e)}"))
-                    self.message_queue.put(("host_status", "读取错误"))
-                    
+                    self.message_queue.put(("log", f"[{label}] [失败] 读取{label}文件时出错: {str(e)}"))
+                    self.message_queue.put((status_msg, "读取错误"))
+
             except Exception as e:
-                self.message_queue.put(("log", f"[Host] [错误] 重新加载hosts文件时出错: {str(e)}"))
+                self.message_queue.put(("log", f"[{label}] [错误] 重新加载{label}文件时出错: {str(e)}"))
             finally:
                 self.message_queue.put(("progress", "stop"))
-                self.message_queue.put(("status", "hosts文件重新加载完成"))
-        
+                self.message_queue.put(("status", f"{label}文件重新加载完成"))
+
         threading.Thread(target=reload_task, daemon=True).start()
 
-    def backup_hosts(self):
-        """备份当前hosts配置"""
+    def backup_config_generic(self):
+        """通用备份配置方法 - 根据当前激活tab备份对应配置"""
+        info = self._get_current_config_info()
+        if info is None:
+            return
+
+        label = info["label"]
+        file_path = info["file_path"]
+        needs_elevation = info["needs_elevation"]
+        file_name = info["file_name"]
+
         def backup_task():
             try:
                 self.message_queue.put(("progress", "start"))
-                self.message_queue.put(("status", "正在备份hosts配置..."))
-                self.message_queue.put(("log", "[Host] [开始] 备份hosts配置"))
-                
-                if not os.path.exists(self.host_file_path):
-                    self.message_queue.put(("log", "[Host] [失败] hosts文件不存在，无法备份"))
+                self.message_queue.put(("status", f"正在备份{label}配置..."))
+                self.message_queue.put(("log", f"[{label}] [开始] 备份{label}配置"))
+
+                if not os.path.exists(file_path):
+                    self.message_queue.put(("log", f"[{label}] [失败] {label}文件不存在，无法备份"))
                     return
-                
-                # 创建备份目录
+
                 import tempfile
-                backup_dir = tempfile.mkdtemp(prefix="hosts_backup_")
-                
-                # 复制hosts文件到备份目录
-                backup_cmd = ["pkexec", "cp", self.host_file_path, backup_dir]
-                result = subprocess.run(backup_cmd, capture_output=True, text=True, timeout=30)
-                
-                if result.returncode == 0:
-                    backup_path = os.path.join(backup_dir, "hosts")
-                    self.message_queue.put(("log", f"[Host] [成功] hosts配置已备份到: {backup_path}"))
-                else:
-                    if "cancelled" in result.stderr.lower():
-                        self.message_queue.put(("log", "[Host] [取消] 用户取消了备份权限授权"))
+                backup_dir = tempfile.mkdtemp(prefix=f"{label}_backup_")
+
+                if needs_elevation:
+                    backup_cmd = ["pkexec", "cp", file_path, backup_dir]
+                    result = subprocess.run(backup_cmd, capture_output=True, text=True, timeout=30)
+
+                    if result.returncode == 0:
+                        backup_path = os.path.join(backup_dir, file_name)
+                        self.message_queue.put(("log", f"[{label}] [成功] {label}配置已备份到: {backup_path}"))
                     else:
-                        self.message_queue.put(("log", f"[Host] [失败] 备份hosts配置失败: {result.stderr}"))
-                
+                        if "cancelled" in result.stderr.lower():
+                            self.message_queue.put(("log", f"[{label}] [取消] 用户取消了备份权限授权"))
+                        else:
+                            self.message_queue.put(("log", f"[{label}] [失败] 备份{label}配置失败: {result.stderr}"))
+                else:
+                    import shutil
+                    backup_path = os.path.join(backup_dir, file_name)
+                    shutil.copy2(file_path, backup_path)
+                    self.message_queue.put(("log", f"[{label}] [成功] {label}配置已备份到: {backup_path}"))
+
             except Exception as e:
-                self.message_queue.put(("log", f"[Host] [错误] 备份hosts配置时出错: {str(e)}"))
+                self.message_queue.put(("log", f"[{label}] [错误] 备份{label}配置时出错: {str(e)}"))
             finally:
                 self.message_queue.put(("progress", "stop"))
-                self.message_queue.put(("status", "hosts配置备份完成"))
-        
-        # 确认对话框
+                self.message_queue.put(("status", f"{label}配置备份完成"))
+
         response = messagebox.askyesno(
-            "确认备份Hosts配置",
-            "此操作将备份当前的hosts文件配置。\n\n"
+            f"确认备份{label}配置",
+            f"此操作将备份当前的{label}文件配置。\n\n"
             "是否继续？",
             icon="info"
         )
-        
+
         if response:
             threading.Thread(target=backup_task, daemon=True).start()
 
@@ -6852,82 +6974,6 @@ class DeepinProjectDownloader:
                 self.message_queue.put(("ping_result", f"[{self.get_current_time()}] 正在停止ping操作...\n"))
             except Exception as e:
                 self.message_queue.put(("ping_result", f"[{self.get_current_time()}] 停止ping操作时出错: {str(e)}\n"))
-
-    def cleanup_github_entry(self):
-        """手动清理hosts文件中的github.com条目"""
-        def cleanup_task():
-            try:
-                self.message_queue.put(("progress", "start"))
-                self.message_queue.put(("status", "正在清理GitHub条目..."))
-                self.message_queue.put(("log", "[Host] [开始] 开始清理GitHub条目"))
-                
-                if not os.path.exists(self.host_file_path):
-                    self.message_queue.put(("log", "[Host] [失败] hosts文件不存在"))
-                    return
-                
-                # 读取当前内容
-                try:
-                    with open(self.host_file_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                except PermissionError:
-                    self.message_queue.put(("log", "[Host] [失败] 没有权限读取hosts文件"))
-                    return
-                except Exception as e:
-                    self.message_queue.put(("log", f"[Host] [失败] 读取hosts文件时出错: {str(e)}"))
-                    return
-                
-                # 移除github.com条目
-                github_entry = ProjectConfig.Network.GITHUB_IP_ENTRY
-                if github_entry in content:
-                    # 创建临时文件
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as temp_file:
-                        # 移除github.com条目
-                        lines = content.split('\n')
-                        filtered_lines = [line for line in lines if line.strip() != github_entry.strip()]
-                        temp_file.write('\n'.join(filtered_lines))
-                        temp_path = temp_file.name
-                    
-                    # 使用pkexec复制文件
-                    copy_cmd = ["pkexec", "cp", temp_path, self.host_file_path]
-                    result = subprocess.run(copy_cmd, capture_output=True, text=True, timeout=30)
-                    
-                    # 清理临时文件
-                    os.unlink(temp_path)
-                    
-                    if result.returncode == 0:
-                        self.message_queue.put(("log", "[Host] [成功] GitHub条目已清理"))
-                        # 重新加载文件内容到编辑器
-                        try:
-                            with open(self.host_file_path, 'r', encoding='utf-8') as f:
-                                new_content = f.read()
-                            self.message_queue.put(("host_content", new_content))
-                        except Exception as e:
-                            self.message_queue.put(("log", f"[Host] [警告] 重新加载文件内容失败: {str(e)}"))
-                    else:
-                        if "cancelled" in result.stderr.lower():
-                            self.message_queue.put(("log", "[Host] [取消] 用户取消了权限授权"))
-                        else:
-                            self.message_queue.put(("log", f"[Host] [失败] 清理GitHub条目失败: {result.stderr}"))
-                else:
-                    self.message_queue.put(("log", "[Host] [信息] hosts文件中未找到GitHub条目"))
-                    
-            except Exception as e:
-                self.message_queue.put(("log", f"[Host] [错误] 清理GitHub条目时出错: {str(e)}"))
-            finally:
-                self.message_queue.put(("progress", "stop"))
-                self.message_queue.put(("status", "GitHub条目清理完成"))
-        
-        # 确认对话框
-        response = messagebox.askyesno(
-            "确认清理GitHub条目",
-            "此操作将从hosts文件中移除 '140.82.112.4 github.com' 条目。\n\n"
-            "是否继续？",
-            icon="warning"
-        )
-        
-        if response:
-            threading.Thread(target=cleanup_task, daemon=True).start()
 
     def get_current_time(self):
         """获取当前时间字符串"""
