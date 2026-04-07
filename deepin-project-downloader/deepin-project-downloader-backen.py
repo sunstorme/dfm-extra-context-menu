@@ -265,6 +265,7 @@ class ProjectConfig:
         "git": "Git版本控制系统",
         "gitk": "Git图形化工具",
         "sshfs": "SSH文件系统",
+        "sshpass": "SSH密码验证工具",
         "git-cola": "Git-cola图形化工具",
         "qtcreator": "Qt Creator IDE",
         "qt5-default": "Qt5开发环境",
@@ -2796,7 +2797,7 @@ class DeepinProjectDownloader:
                 # 步骤2: 安装openssh-server
                 self.message_queue.put(("log", "[SSH] [步骤2] 正在安装openssh-server..."))
                 install_process = subprocess.Popen(
-                    ["pkexec", "apt", "install", "-y", "openssh-server"], 
+                    ["pkexec", "apt", "install", "-y", "openssh-server", "sshpass"], 
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.PIPE, 
                     text=True, 
