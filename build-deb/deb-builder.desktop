@@ -8,7 +8,6 @@ Comment=Build Debian packages with dpkg-buildpackage
 Comment[zh_CN]=使用dpkg-buildpackage构建Debian包
 Exec=/usr/bin/deb-builder-launcher.sh %p
 Icon=/usr/share/dfm-tools-plugins/deb-package-icon.svg
-Terminal=true
 Categories=Development;System;PackageManager;
 Keywords=deb;package;build;dpkg;debian;ubuntu;
 StartupNotify=true

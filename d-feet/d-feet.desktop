@@ -8,7 +8,6 @@ Comment=D-Bus debugger and inspector tool
 Comment[zh_CN]=D-Bus 调试器和检查工具
 Exec=d-feet
 Icon=/usr/share/dfm-tools-plugins/d-feet.svg
-Terminal=false
 Categories=Development;System;
 Keywords=d-bus;debug;inspect;system;development;
 StartupNotify=true

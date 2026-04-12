@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deepin 项目下载器启动脚本
+# Deepin 开发工具箱启动脚本
 
 # 颜色定义
 RED='\033[0;31m'
@@ -25,7 +25,7 @@ send_notification() {
     fi
 }
 
-echo "[启动] 启动 Deepin 项目下载器..."
+echo "[启动] 启动 Deepin 开发工具箱..."
 
 # 检测系统发行版
 detect_distro() {

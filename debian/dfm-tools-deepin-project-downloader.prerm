@@ -13,7 +13,7 @@ import tempfile
 def print_header():
     """打印美化的标题"""
     print("=" * 60)
-    print("DFM Deepin 项目下载器插件卸载程序")
+    print("DFM Deepin 开发工具箱插件卸载程序")
     print("=" * 60)
 
 def print_success(message):

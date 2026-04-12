@@ -18,7 +18,7 @@
 - **Git Cola** - 图形化 Git 操作界面
 - **Visual Studio Code** - 跨平台代码编辑器，智能检测工程目录
 - **Qt Creator** - 跨平台 Qt 开发 IDE，智能检测 qmake/CMake 工程
-- **Deepin 项目下载器** - 从各种来源下载和管理深度项目
+- **Deepin 开发工具箱** - 从各种来源下载和管理深度项目
 - **DDE DConfig 编辑器** - 系统和应用程序配置管理
 - **D-Feet** - D-Bus 调试和检查工具
 - **更新日志管理** - 自动更新 Debian 更新日志和版本信息

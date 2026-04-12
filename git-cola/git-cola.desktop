@@ -11,7 +11,6 @@ TryExec=git-cola
 Exec=git-cola -r %p
 Icon=git-cola
 StartupNotify=true
-Terminal=false
 Categories=Development;RevisionControl;
 Keywords=git;version;control;repository;gui;
 MimeType=inode/directory;
