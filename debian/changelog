@@ -1,3 +1,13 @@
+dfm-tools-plugins (1.5.6) unstable; urgency=medium
+
+  * chore: Update version to 1.5.6
+  * feat(project-downloader): rename to development toolbox and add desktop entries
+  * feat(deps): add sshpass to SSH installation dependencies
+  * feat(ui): expand config tools with bashrc editor and refactor management interface
+  * fix(build, ui): improve package discovery and fix modal dialog behavior
+
+ -- zhanghongyuan <2063218120@qq.com>  Sun, 12 Apr 2026 13:17:01 +0800
+
 dfm-tools-plugins (1.5.5) unstable; urgency=medium
 
   * chore: Update version to 1.5.5
