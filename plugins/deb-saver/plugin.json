@@ -1,0 +1,17 @@
+{
+  "id": "deb-saver",
+  "name": "DEB Saver",
+  "name_zh_CN": "DEB 包管理",
+  "description": "Download and manage DEB packages",
+  "description_zh_CN": "下载和管理 DEB 包",
+  "icon": "deb-saver.svg",
+  "category": "package",
+  "depends": ["python3", "python3-tk"],
+  "menu_types": ["EmptyArea"],
+  "command": "/usr/bin/deb-saver.py",
+  "tray": {
+    "label": "DEB包下载器",
+    "group": "开发工具",
+    "order": 50
+  }
+}

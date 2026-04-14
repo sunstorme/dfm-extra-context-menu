@@ -1,0 +1,17 @@
+{
+  "id": "d-feet",
+  "name": "D-Feet",
+  "name_zh_CN": "D-Feet",
+  "description": "D-Bus debugger",
+  "description_zh_CN": "D-Bus 调试器",
+  "icon": "d-feet.svg",
+  "category": "debug",
+  "depends": ["d-feet"],
+  "menu_types": ["EmptyArea"],
+  "command": "d-feet",
+  "tray": {
+    "label": "D-Feet",
+    "group": "开发工具",
+    "order": 40
+  }
+}

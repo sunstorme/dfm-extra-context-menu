@@ -1,4 +1,0 @@
-# DEB Builder plugin files
-build-deb/deb-builder.desktop usr/share/deepin/dde-file-manager/oem-menuextensions
-build-deb/deb-builder-launcher.sh usr/bin
-build-deb/deb-package-icon.svg usr/share/dfm-tools-plugins

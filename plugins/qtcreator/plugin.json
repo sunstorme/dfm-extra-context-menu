@@ -1,0 +1,17 @@
+{
+  "id": "qtcreator",
+  "name": "Qt Creator",
+  "name_zh_CN": "Qt Creator",
+  "description": "Open Qt projects with auto-detection",
+  "description_zh_CN": "自动检测并打开 Qt 项目",
+  "icon": "qtcreator-icon.svg",
+  "category": "ide",
+  "depends": ["qtcreator"],
+  "menu_types": ["SingleDir"],
+  "command": "/usr/bin/qtcreator-launcher.sh",
+  "tray": {
+    "label": "Qt Creator",
+    "group": "IDE",
+    "order": 31
+  }
+}

@@ -1,0 +1,27 @@
+# Python 模块
+src/*.py usr/lib/dfm-tools/
+
+# 插件目录（保留目录结构）
+plugins/*/ usr/share/dfm-tools/plugins/
+
+# 插件脚本（安装到 /usr/bin/）
+plugins/*/*.sh usr/bin/
+plugins/*/*.py usr/bin/
+
+# 插件图标（同时安装到 /usr/share/dfm-tools/ 用于 .desktop 引用）
+plugins/*/*.svg usr/share/dfm-tools/
+
+# 文件管理器集成菜单
+integration-all/integration-all.desktop usr/share/deepin/dde-file-manager/oem-menuextensions/
+integration-all/integration.svg usr/share/dfm-tools/
+
+# 文档
+README.md usr/share/doc/dfm-tools/
+LICENSE usr/share/doc/dfm-tools/
+docs/*.md usr/share/doc/dfm-tools/
+
+# 主图标
+dfm-tools.svg usr/share/icons/hicolor/scalable/apps/
+
+# 自启动配置
+autostart/dfm-tools.desktop etc/xdg/autostart/

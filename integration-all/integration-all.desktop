@@ -1,39 +1,63 @@
 [Desktop Entry]
 Type=Application
-Icon=/usr/share/dfm-tools-plugins/integration.svg
+Icon=/usr/share/dfm-tools/integration.svg
 Name=Development Tools
 Name[zh_CN]=开发工具
 X-DFM-MenuTypes=SingleDir;MultiFileDirs;EmptyArea;
 Comment=Integrated development tools menu
 Comment[zh_CN]=集成开发工具菜单
-Actions=deb-builder;gitk;deepin-project-downloader;dde-dconfig-editor;d-feet
+Actions=deb-builder;gitk;vscode;qtcreator;deepin-project-downloader;dde-dconfig-editor;deb-saver;d-feet;deb-changelog
 
 [Desktop Action deb-builder]
-Name=DEB Package Builder
+Name=DEB Builder
 Name[zh_CN]=构建DEB包
 Exec=/usr/bin/deb-builder-launcher.sh %p
-Icon=/usr/share/dfm-tools-plugins/deb-package-icon.svg
+Icon=/usr/share/dfm-tools/deb-package-icon.svg
 
 [Desktop Action gitk]
 Name=Gitk
 Name[zh_CN]=Gitk
 Exec=/usr/bin/gitk-launcher.sh %p
-Icon=/usr/share/dfm-tools-plugins/gitk-icon.svg
+Icon=/usr/share/dfm-tools/gitk-icon.svg
+
+[Desktop Action vscode]
+Name=VSCode
+Name[zh_CN]=VSCode
+Exec=/usr/bin/vscode-launcher.sh %p
+Icon=/usr/share/dfm-tools/vscode-icon.svg
+
+[Desktop Action qtcreator]
+Name=Qt Creator
+Name[zh_CN]=Qt Creator
+Exec=/usr/bin/qtcreator-launcher.sh %p
+Icon=/usr/share/dfm-tools/qtcreator-icon.svg
 
 [Desktop Action deepin-project-downloader]
-Name=Deepin Project Downloader
-Name[zh_CN]=DFM开发工具箱
-Exec=/usr/bin/deepin-project-downloader-launcher.sh %p
-Icon=/usr/share/dfm-tools-plugins/deepin-project-downloader.svg
+Name=Project Downloader
+Name[zh_CN]=项目下载器
+Exec=/usr/bin/deepin-project-downloader-launcher.sh
+Icon=/usr/share/dfm-tools/deepin-project-downloader.svg
 
 [Desktop Action dde-dconfig-editor]
-Name=Deepin DConfige Editor
+Name=DConfig Editor
 Name[zh_CN]=DConfig编辑器
-Exec=/usr/bin/dde-dconfig-editor
-Icon=/usr/share/dfm-tools-plugins/dde-dconfig-editor.svg
+Exec=dde-dconfig-editor
+Icon=/usr/share/dfm-tools/dde-dconfig-editor.svg
+
+[Desktop Action deb-saver]
+Name=DEB Saver
+Name[zh_CN]=DEB包管理
+Exec=/usr/bin/deb-saver.py
+Icon=/usr/share/dfm-tools/deb-saver.svg
 
 [Desktop Action d-feet]
 Name=D-Feet
 Name[zh_CN]=D-Feet
 Exec=d-feet
-Icon=/usr/share/dfm-tools-plugins/d-feet.svg
+Icon=/usr/share/dfm-tools/d-feet.svg
+
+[Desktop Action deb-changelog]
+Name=Changelog
+Name[zh_CN]=更新日志
+Exec=/usr/bin/debian-changelog-launcher.sh
+Icon=/usr/share/dfm-tools/changelog.svg

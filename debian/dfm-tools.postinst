@@ -1,0 +1,44 @@
+#!/bin/sh
+set -e
+
+# DFM-Tools postinst script
+# 在安装后配置系统
+
+echo "配置 DFM Tools..."
+
+# 移除旧版本的独立包（如果存在）
+remove_old_packages() {
+    old_packages="
+        cat-gitk
+        vscode
+        qtcreator
+        d-feet
+        deb-saver
+        dde-dconfig-editor
+        deepin-project-downloader
+        debian-changelog
+        git-cola
+        build-deb
+        dfm-tools-plugins
+    "
+
+    for pkg in $old_packages; do
+        if dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
+            echo "  移除旧包: $pkg"
+            apt-get remove -y "$pkg" 2>/dev/null || dpkg -r "$pkg" 2>/dev/null || true
+        fi
+    done
+}
+
+# 在配置前移除旧包
+case "$1" in
+    configure|upgrade|abort-upgrade|abort-remove)
+        remove_old_packages
+        ;;
+esac
+
+# 确保目录存在
+mkdir -p /usr/share/deepin/dde-file-manager/oem-menuextensions
+
+echo "DFM Tools 安装完成！"
+echo "重启文件管理器后，右键菜单将显示开发工具选项。"

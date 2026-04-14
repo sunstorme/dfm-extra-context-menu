@@ -1,0 +1,17 @@
+{
+  "id": "vscode",
+  "name": "VSCode",
+  "name_zh_CN": "VSCode",
+  "description": "Open project in Visual Studio Code",
+  "description_zh_CN": "在 VSCode 中打开项目",
+  "icon": "vscode-icon.svg",
+  "category": "ide",
+  "depends": ["code"],
+  "menu_types": ["SingleDir"],
+  "command": "/usr/bin/vscode-launcher.sh",
+  "tray": {
+    "label": "VSCode",
+    "group": "IDE",
+    "order": 30
+  }
+}

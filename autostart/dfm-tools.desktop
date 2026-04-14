@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=DFM Tools
+Name[zh_CN]=DFM 开发工具箱
+Comment=Development toolbox tray icon
+Comment[zh_CN]=开发工具箱托盘图标
+Exec=dfm-tools --tray
+Icon=dfm-tools
+Terminal=false
+X-GNOME-Autostart-enabled=true
+Categories=Development;System;

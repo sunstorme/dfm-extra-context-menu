@@ -1,0 +1,17 @@
+{
+  "id": "dde-dconfig-editor",
+  "name": "DConfig Editor",
+  "name_zh_CN": "DConfig 编辑器",
+  "description": "DDE configuration editor",
+  "description_zh_CN": "深度配置编辑器",
+  "icon": "dde-dconfig-editor.svg",
+  "category": "config",
+  "depends": ["dde-dconfig-editor"],
+  "menu_types": ["EmptyArea"],
+  "command": "dde-dconfig-editor",
+  "tray": {
+    "label": "DConfig 编辑器",
+    "group": "系统工具",
+    "order": 70
+  }
+}
