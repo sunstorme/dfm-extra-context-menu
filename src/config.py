@@ -170,6 +170,7 @@ class ConfigManager:
 
         config["menu_items"] = menu_items + [
             {"type": "separator"},
+            {"type": "item", "label": "重启", "action": "restart"},
             {"type": "item", "label": "关于", "action": "show_message"},
             {"type": "item", "label": "退出", "action": "quit"}
         ]
@@ -190,10 +191,54 @@ class ConfigManager:
         # 合并用户配置
         user_config = self.load_user_config()
         if user_config:
-            # 用户配置可以覆盖基础配置
+            # 处理 extra_menu_items（追加而不是覆盖）
+            if 'extra_menu_items' in user_config:
+                extra_items = user_config.pop('extra_menu_items')
+                if isinstance(extra_items, list):
+                    # 追加到现有菜单项
+                    config['menu_items'].extend(extra_items)
+
+            # 其他配置项深度合并
             config = self._deep_merge(config, user_config)
 
+        # 确保核心菜单项始终存在（重启、关于、退出）
+        self._ensure_core_menu_items(config)
+
         return config
+
+    def _ensure_core_menu_items(self, config: Dict):
+        """
+        确保核心菜单项（重启、关于、退出）始终在最底部
+
+        Args:
+            config: 配置字典
+        """
+        menu_items = config.get('menu_items', [])
+
+        # 核心菜单项 action 列表
+        core_actions = {'restart', 'show_message', 'quit'}
+
+        # 移除所有已存在的核心菜单项（无论位置）
+        filtered_items = []
+        for item in menu_items:
+            if item.get('type') == 'item' and item.get('action') in core_actions:
+                continue  # 跳过核心菜单项，稍后重新添加
+            filtered_items.append(item)
+
+        # 移除末尾的分隔线
+        while filtered_items and filtered_items[-1].get("type") == "separator":
+            filtered_items.pop()
+
+        # 在最末尾添加核心菜单项
+        core_items = [
+            {"type": "separator"},
+            {"type": "item", "label": "重启", "action": "restart"},
+            {"type": "item", "label": "关于", "action": "show_message"},
+            {"type": "item", "label": "退出", "action": "quit"}
+        ]
+        filtered_items.extend(core_items)
+
+        config['menu_items'] = filtered_items
 
     def _deep_merge(self, base: Dict, override: Dict) -> Dict:
         """

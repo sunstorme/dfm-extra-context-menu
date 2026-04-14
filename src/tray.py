@@ -6,6 +6,7 @@ DFM Tools 托盘图标
 
 import signal
 import sys
+from pathlib import Path
 from typing import Dict
 
 import gi
@@ -13,6 +14,7 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('AyatanaAppIndicator3', '0.1')
 
 from gi.repository import Gtk, AyatanaAppIndicator3 as AppIndicator3
+from gi.repository import Gio, GLib
 
 from config import get_config_manager
 from executor import get_executor
@@ -81,7 +83,12 @@ class TrayIcon:
         # 设置确认对话框回调
         self.executor.set_confirm_callback(self._confirm_dialog)
 
+        # 启动配置文件监听
+        self._config_monitor = None
+        self._start_config_monitor()
+
         print(f"✓ 托盘图标已创建: {self.app_id}")
+        print(f"✓ 配置监听已启动: {self._get_config_file()}")
 
     def _create_menu(self) -> Gtk.Menu:
         """
@@ -263,10 +270,88 @@ class TrayIcon:
         dialog.run()
         dialog.destroy()
 
+    def on_restart(self, widget):
+        """重启托盘应用"""
+        print("重启应用...")
+        Gtk.main_quit()
+        # 使用 spawn 重新启动当前进程
+        import os
+        try:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception as e:
+            print(f"重启失败: {e}")
+
     def on_quit(self, widget):
         """退出"""
         print("退出应用...")
         Gtk.main_quit()
+
+    # ========================================================================
+    # 配置文件监听
+    # ========================================================================
+
+    def _get_config_file(self) -> Path:
+        """
+        获取用户配置文件路径
+
+        Returns:
+            配置文件路径
+        """
+        return Path.home() / ".config" / "dfm-tools" / "tray.json"
+
+    def _start_config_monitor(self):
+        """启动配置文件监听"""
+        config_file = self._get_config_file()
+
+        # 如果配置文件不存在，监听其父目录
+        monitor_path = config_file if config_file.exists() else config_file.parent
+
+        try:
+            # 创建 Gio 文件对象
+            gfile = Gio.File.new_for_path(str(monitor_path))
+
+            # 创建文件监听器
+            self._config_monitor = gfile.monitor_file(
+                Gio.FileMonitorFlags.NONE,
+                None
+            )
+
+            # 连接变化信号
+            self._config_monitor.connect("changed", self._on_config_changed)
+
+        except Exception as e:
+            print(f"配置监听启动失败: {e}")
+
+    def _on_config_changed(self, _monitor, _file, _other_file, event_type):
+        """
+        配置文件变化回调
+
+        Args:
+            _monitor: Gio 文件监听器（未使用）
+            _file: 变化的文件（未使用）
+            _other_file: 其他相关文件（未使用）
+            event_type: 事件类型
+        """
+        # 只在文件修改完成时重新加载（避免编辑过程中的临时文件）
+        if event_type == Gio.FileMonitorEvent.CHANGES_DONE_HINT:
+            print("检测到配置文件变化，正在重新加载...")
+            self._reload_config()
+
+    def _reload_config(self):
+        """重新加载配置并重建菜单"""
+        # 清除缓存
+        self.config_manager._tray_config = None
+
+        # 重新加载配置
+        new_config = self.config_manager.get_tray_config()
+        self.config = new_config
+
+        # 重建菜单
+        new_menu = self._create_menu()
+        self.indicator.set_menu(new_menu)
+        self.menu = new_menu
+
+        print("✓ 配置已重新加载，菜单已更新")
 
     def run(self):
         """运行主循环"""
