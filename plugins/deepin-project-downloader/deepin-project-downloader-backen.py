@@ -1707,139 +1707,86 @@ class DeepinProjectDownloader:
         config_content_frame = self.config_scroll.scrollable_frame
         config_content_frame.columnconfigure(0, weight=1)
         
-        # 源选择区域（可折叠）
-        source_container = ttk.Frame(config_content_frame)
-        source_container.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
-        source_container.columnconfigure(0, weight=1)
+        # 基础配置区域（可折叠，合并源选择和保存路径）
+        basic_container = ttk.Frame(config_content_frame)
+        basic_container.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        basic_container.columnconfigure(0, weight=1)
         
-        # 源选择标题栏（包含折叠按钮）
-        source_header_frame = ttk.Frame(source_container, relief="ridge", borderwidth=1)
-        source_header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
-        source_header_frame.columnconfigure(1, weight=1)
+        # 基础配置标题栏（包含折叠按钮）
+        basic_header_frame = ttk.Frame(basic_container, relief="ridge", borderwidth=1)
+        basic_header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        basic_header_frame.columnconfigure(1, weight=1)
         
         # 折叠按钮
-        self.source_collapsed = tk.BooleanVar(value=True)  # 默认折叠
-        self.source_toggle_btn = ttk.Button(source_header_frame, text="▶", width=3, 
-                                           command=self.toggle_source_section)
-        self.source_toggle_btn.grid(row=0, column=0, padx=(5, 5), pady=5)
+        self.basic_collapsed = tk.BooleanVar(value=True)  # 默认折叠
+        self.basic_toggle_btn = ttk.Button(basic_header_frame, text="▶", width=3,
+                                           command=self.toggle_basic_section)
+        self.basic_toggle_btn.grid(row=0, column=0, padx=(5, 5), pady=5)
         
-        # 源选择标题
-        ttk.Label(source_header_frame, text="源选择", font=("", 9, "bold")).grid(
+        # 基础配置标题
+        ttk.Label(basic_header_frame, text="基础配置", font=("", 9, "bold")).grid(
             row=0, column=1, padx=(0, 2), pady=2, sticky="w"
         )
         
-        # 源选择内容区域
-        self.source_content_frame = ttk.Frame(source_container, relief="ridge", borderwidth=1)
-        self.source_content_frame.columnconfigure(2, weight=1)
+        # 基础配置内容区域
+        self.basic_content_frame = ttk.Frame(basic_container, relief="ridge", borderwidth=1)
         # 默认不显示内容区域（折叠状态）
+        self.basic_content_frame.columnconfigure(1, weight=1)
         
-        ttk.Label(self.source_content_frame, text="选择下载源:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
-        source_combo = ttk.Combobox(self.source_content_frame, textvariable=self.source_var, 
+        # 第一行：下载源选择
+        ttk.Label(self.basic_content_frame, text="下载源:").grid(row=0, column=0, padx=(10, 5), pady=(8, 2), sticky="w")
+        source_combo = ttk.Combobox(self.basic_content_frame, textvariable=self.source_var,
                                    values=("gitee", "github"), state="readonly", width=15)
-        source_combo.grid(row=0, column=1, padx=(0, 10), pady=(5, 2), sticky="w")
+        source_combo.grid(row=0, column=1, padx=(0, 5), pady=(8, 2), sticky="w")
         source_combo.bind('<<ComboboxSelected>>', self.on_source_changed)
         
-        ttk.Label(self.source_content_frame, text="(优先推荐使用 Gitee 源，速度更快)", 
-                 foreground="gray").grid(row=0, column=2, padx=(0, 10), pady=(5, 2), sticky="w")
+        ttk.Label(self.basic_content_frame, text="(优先推荐使用 Gitee 源，速度更快)",
+                 foreground="gray").grid(row=0, column=2, padx=(0, 10), pady=(8, 2), sticky="w")
         
-        # 在源选择区域添加保存按钮
-        ttk.Button(self.source_content_frame, text="保存配置", command=self.save_config, style='Success.TButton').grid(
-            row=0, column=3, padx=(5, 10), pady=(5, 2), sticky="e"
+        # 第二行：保存路径
+        ttk.Label(self.basic_content_frame, text="保存路径:").grid(row=1, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
+        ttk.Entry(self.basic_content_frame, textvariable=self.save_path, state="readonly").grid(
+            row=1, column=1, columnspan=2, sticky="ew", padx=(0, 5), pady=(5, 2)
+        )
+        # 保存路径按钮框架
+        path_btn_frame = ttk.Frame(self.basic_content_frame)
+        path_btn_frame.grid(row=1, column=3, padx=(5, 10), pady=(5, 2), sticky="e")
+        ttk.Button(path_btn_frame, text="选择路径", command=self.select_path, style='Primary.TButton').pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(path_btn_frame, text="一键清理", command=self.cleanup_all, style='Danger.TButton').pack(
+            side=tk.LEFT
         )
         
-        # 保存路径选择区域（可折叠）
-        path_container = ttk.Frame(config_content_frame)
-        path_container.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
-        path_container.columnconfigure(0, weight=1)
-        
-        # 保存路径标题栏（包含折叠按钮）
-        path_header_frame = ttk.Frame(path_container, relief="ridge", borderwidth=1)
-        path_header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
-        path_header_frame.columnconfigure(1, weight=1)
-        
-        # 折叠按钮
-        self.path_collapsed = tk.BooleanVar(value=False)  # 默认展开
-        self.path_toggle_btn = ttk.Button(path_header_frame, text="▼", width=3, 
-                                         command=self.toggle_path_section)
-        self.path_toggle_btn.grid(row=0, column=0, padx=(5, 5), pady=5)
-        
-        # 保存路径标题
-        ttk.Label(path_header_frame, text="保存路径", font=("", 9, "bold")).grid(
-            row=0, column=1, padx=(0, 5), pady=5, sticky="w"
-        )
-        
-        # 保存路径内容区域
-        self.path_content_frame = ttk.Frame(path_container, relief="ridge", borderwidth=1)
-        self.path_content_frame.grid(row=1, column=0, sticky="ew")  # 默认显示（展开状态）
-        self.path_content_frame.columnconfigure(0, weight=1)
-        
-        ttk.Entry(self.path_content_frame, textvariable=self.save_path, state="readonly").grid(
-            row=0, column=0, sticky="ew", padx=(10, 5), pady=(5, 10)
-        )
-        ttk.Button(self.path_content_frame, text="选择路径", command=self.select_path, style='Primary.TButton').grid(
-            row=0, column=1, padx=(5, 5), pady=(5, 10)
-        )
-        ttk.Button(self.path_content_frame, text="一键清理", command=self.cleanup_all, style='Warning.TButton').grid(
-            row=0, column=2, padx=(5, 10), pady=(5, 10)
-        )
-        
-        # Git初始化区域（可折叠）
-        git_container = ttk.Frame(config_content_frame)
-        git_container.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
-        git_container.columnconfigure(0, weight=1)
-        
-        # Git标题栏（包含折叠按钮）
-        git_header_frame = ttk.Frame(git_container, relief="ridge", borderwidth=1)
-        git_header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
-        git_header_frame.columnconfigure(1, weight=1)
-        
-        # 折叠按钮
-        self.git_collapsed = tk.BooleanVar(value=True)  # 默认折叠
-        self.git_toggle_btn = ttk.Button(git_header_frame, text="▶", width=3, 
-                                        command=self.toggle_git_section)
-        self.git_toggle_btn.grid(row=0, column=0, padx=(5, 5), pady=5)
-        
-        # Git标题（可更新状态）
-        self.git_title_var = tk.StringVar(value="Git 初始化 - 未配置")
-        self.git_title_label = ttk.Label(git_header_frame, textvariable=self.git_title_var, font=("", 9, "bold"))
-        self.git_title_label.grid(row=0, column=1, padx=(0, 5), pady=5, sticky="w")
-        
-        # Git内容区域
-        self.git_content_frame = ttk.Frame(git_container, relief="ridge", borderwidth=1)
-        self.git_content_frame.columnconfigure(1, weight=1)
-        # 默认不显示内容区域（折叠状态）
-        
-        # Git用户名
-        ttk.Label(self.git_content_frame, text="用户名:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
+        # 第三行：Git用户名
+        ttk.Label(self.basic_content_frame, text="Git用户名:").grid(row=2, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
         self.git_name_var = tk.StringVar(value=ProjectConfig.AppInfo.APP_AUTHOR)
-        git_name_entry = ttk.Entry(self.git_content_frame, textvariable=self.git_name_var, width=30)
-        git_name_entry.grid(row=0, column=1, padx=(0, 10), pady=(5, 2), sticky="ew")
-        
-        # Git邮箱
-        ttk.Label(self.git_content_frame, text="邮箱:").grid(row=1, column=0, padx=(10, 5), pady=2, sticky="w")
-        self.git_email_var = tk.StringVar(value="zhanghongyuan@uniontech.com")
-        git_email_entry = ttk.Entry(self.git_content_frame, textvariable=self.git_email_var, width=30)
-        git_email_entry.grid(row=1, column=1, padx=(0, 10), pady=2, sticky="ew")
-        
-        # 应用按钮
-        ttk.Button(self.git_content_frame, text="应用配置", command=self.apply_git_config, style='Success.TButton').grid(
-            row=0, column=2, rowspan=2, padx=(5, 10), pady=(5, 2)
+        git_name_entry = ttk.Entry(self.basic_content_frame, textvariable=self.git_name_var, width=30)
+        git_name_entry.grid(row=2, column=1, columnspan=2, padx=(0, 5), pady=(5, 2), sticky="ew")
+        ttk.Button(self.basic_content_frame, text="应用Git配置", command=self.apply_git_config, style='Success.TButton').grid(
+            row=2, column=3, padx=(5, 10), pady=(5, 2), sticky="e"
         )
         
-        # 状态标签
-        self.git_status_var = tk.StringVar(value="未配置")
-        self.git_status_label = ttk.Label(self.git_content_frame, textvariable=self.git_status_var, foreground="orange")
-        self.git_status_label.grid(row=2, column=0, columnspan=3, padx=(10, 10), pady=(5, 10), sticky="w")
+        # 第四行：Git邮箱
+        ttk.Label(self.basic_content_frame, text="Git邮箱:").grid(row=3, column=0, padx=(10, 5), pady=2, sticky="w")
+        self.git_email_var = tk.StringVar(value="zhanghongyuan@uniontech.com")
+        git_email_entry = ttk.Entry(self.basic_content_frame, textvariable=self.git_email_var, width=30)
+        git_email_entry.grid(row=3, column=1, columnspan=2, padx=(0, 5), pady=2, sticky="ew")
         
-        # 确保默认折叠状态（内容区域隐藏）
-        # Git内容区域默认不显示，直到用户点击展开
+        # 第五行：Git状态
+        self.git_status_var = tk.StringVar(value="未配置")
+        self.git_status_label = ttk.Label(self.basic_content_frame, textvariable=self.git_status_var, foreground="orange")
+        self.git_status_label.grid(row=4, column=0, columnspan=4, padx=(10, 10), pady=(2, 8), sticky="w")
+        
+        # 保留git_title_var变量（apply_git_config中使用）
+        self.git_title_var = tk.StringVar(value="Git 初始化 - 未配置")
         
         # 自动应用Git配置
         self.root.after(1000, self.apply_git_config)
         
         # SSH配置区域（可折叠）
         ssh_container = ttk.Frame(config_content_frame)
-        ssh_container.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
+        ssh_container.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
         ssh_container.columnconfigure(0, weight=1)
         
         # SSH标题栏（包含折叠按钮）
@@ -1848,8 +1795,8 @@ class DeepinProjectDownloader:
         ssh_header_frame.columnconfigure(1, weight=1)
         
         # SSH折叠按钮
-        self.ssh_collapsed = tk.BooleanVar(value=True)  # 默认折叠
-        self.ssh_toggle_btn = ttk.Button(ssh_header_frame, text="▶", width=3, 
+        self.ssh_collapsed = tk.BooleanVar(value=False)  # 默认展开
+        self.ssh_toggle_btn = ttk.Button(ssh_header_frame, text="▼", width=3,
                                         command=self.toggle_ssh_section)
         self.ssh_toggle_btn.grid(row=0, column=0, padx=(5, 5), pady=5)
         
@@ -1860,8 +1807,8 @@ class DeepinProjectDownloader:
         
         # SSH内容区域
         self.ssh_content_frame = ttk.Frame(ssh_container, relief="ridge", borderwidth=1)
+        self.ssh_content_frame.grid(row=1, column=0, sticky="ew")  # 默认显示（展开状态）
         self.ssh_content_frame.columnconfigure(1, weight=1)
-        # 默认不显示内容区域（折叠状态）
         
         # SSH服务状态
         ttk.Label(self.ssh_content_frame, text="SSH状态:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
@@ -1890,9 +1837,9 @@ class DeepinProjectDownloader:
         ssh_address_entry = ttk.Entry(self.ssh_content_frame, textvariable=self.ssh_address_var, state="readonly")
         ssh_address_entry.grid(row=1, column=1, padx=(0, 5), pady=2, sticky="ew")
         
-        # 复制按钮
+        # 复制按钮（与上下行的多按钮组右对齐）
         ttk.Button(self.ssh_content_frame, text="复制", command=self.copy_ssh_address, style='Primary.TButton').grid(
-            row=1, column=2, padx=(5, 10), pady=2
+            row=1, column=2, padx=(5, 10), pady=2, sticky="e"
         )
         
         # SSH Key管理区域
@@ -1923,7 +1870,7 @@ class DeepinProjectDownloader:
         
         # SSHFS配置区域（可折叠）
         sshfs_container = ttk.Frame(config_content_frame)
-        sshfs_container.grid(row=4, column=0, sticky="ew", padx=10, pady=5)
+        sshfs_container.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
         sshfs_container.columnconfigure(0, weight=1)
         
         # SSHFS标题栏（包含折叠按钮）
@@ -1980,9 +1927,6 @@ class DeepinProjectDownloader:
         sshfs_btn_frame = ttk.Frame(self.sshfs_content_frame)
         sshfs_btn_frame.grid(row=1, column=2, padx=(5, 10), pady=2, sticky="e")
         
-        ttk.Button(sshfs_btn_frame, text="安装sshfs", command=self.install_sshfs, style='Success.TButton').pack(
-            side=tk.LEFT, padx=(0, 5)
-        )
         ttk.Button(sshfs_btn_frame, text="检查状态", command=self.check_sshfs_status, style='Primary.TButton').pack(
             side=tk.LEFT, padx=(0, 5)
         )
@@ -2007,7 +1951,7 @@ class DeepinProjectDownloader:
         
         # 复制命令按钮
         ttk.Button(self.sshfs_content_frame, text="复制", command=self.copy_sshfs_command, style='Primary.TButton').grid(
-            row=2, column=2, padx=(5, 10), pady=2
+            row=2, column=2, padx=(5, 10), pady=2, sticky="e"
         )
         
         # 主机地址
@@ -2036,7 +1980,7 @@ class DeepinProjectDownloader:
         
         # 选择路径按钮
         ttk.Button(self.sshfs_content_frame, text="选择路径", command=self.select_sshfs_local_path, style='Primary.TButton').grid(
-            row=6, column=2, padx=(5, 10), pady=2
+            row=6, column=2, padx=(5, 10), pady=2, sticky="e"
         )
         
         # 初始化SSHFS配置
@@ -2055,7 +1999,7 @@ class DeepinProjectDownloader:
         
         # 系统信息区域（可折叠）
         system_info_container = ttk.Frame(config_content_frame)
-        system_info_container.grid(row=5, column=0, sticky="ew", padx=10, pady=5)
+        system_info_container.grid(row=3, column=0, sticky="ew", padx=10, pady=5)
         system_info_container.columnconfigure(0, weight=1)
         
         # 系统信息标题栏（包含折叠按钮）
@@ -2329,50 +2273,20 @@ class DeepinProjectDownloader:
             self.git_status_label.config(foreground="red")
             self.log_message(f"[Git] Git配置过程中出错: {str(e)}")
 
-    def toggle_git_section(self):
-        """切换Git配置区域的折叠/展开状态"""
-        if self.git_collapsed.get():
+    def toggle_basic_section(self):
+        """切换基础配置区域的折叠/展开状态"""
+        if self.basic_collapsed.get():
             # 当前是折叠状态，展开
-            self.git_content_frame.grid(row=1, column=0, sticky="ew")
-            self.git_toggle_btn.config(text="▼")
-            self.git_collapsed.set(False)
-            self.log_message("[界面] Git配置区域已展开")
+            self.basic_content_frame.grid(row=1, column=0, sticky="ew")
+            self.basic_toggle_btn.config(text="▼")
+            self.basic_collapsed.set(False)
+            self.log_message("[界面] 基础配置区域已展开")
         else:
             # 当前是展开状态，折叠
-            self.git_content_frame.grid_remove()
-            self.git_toggle_btn.config(text="▶")
-            self.git_collapsed.set(True)
-            self.log_message("[界面] Git配置区域已折叠")
-    
-    def toggle_source_section(self):
-        """切换源选择区域的折叠/展开状态"""
-        if self.source_collapsed.get():
-            # 当前是折叠状态，展开
-            self.source_content_frame.grid(row=1, column=0, sticky="ew")
-            self.source_toggle_btn.config(text="▼")
-            self.source_collapsed.set(False)
-            self.log_message("[界面] 源选择区域已展开")
-        else:
-            # 当前是展开状态，折叠
-            self.source_content_frame.grid_remove()
-            self.source_toggle_btn.config(text="▶")
-            self.source_collapsed.set(True)
-            self.log_message("[界面] 源选择区域已折叠")
-    
-    def toggle_path_section(self):
-        """切换保存路径区域的折叠/展开状态"""
-        if self.path_collapsed.get():
-            # 当前是折叠状态，展开
-            self.path_content_frame.grid(row=1, column=0, sticky="ew")
-            self.path_toggle_btn.config(text="▼")
-            self.path_collapsed.set(False)
-            self.log_message("[界面] 保存路径区域已展开")
-        else:
-            # 当前是展开状态，折叠
-            self.path_content_frame.grid_remove()
-            self.path_toggle_btn.config(text="▶")
-            self.path_collapsed.set(True)
-            self.log_message("[界面] 保存路径区域已折叠")
+            self.basic_content_frame.grid_remove()
+            self.basic_toggle_btn.config(text="▶")
+            self.basic_collapsed.set(True)
+            self.log_message("[界面] 基础配置区域已折叠")
     
     def toggle_ssh_section(self):
         """切换SSH区域的折叠/展开状态"""
@@ -3059,79 +2973,6 @@ class DeepinProjectDownloader:
                 self.sshfs_command_var.set("")
         except Exception as e:
             self.log_message(f"[SSHFS] 更新命令失败: {str(e)}")
-
-    def install_sshfs(self):
-        """安装SSHFS"""
-        def install_task():
-            try:
-                self.message_queue.put(("progress", "start"))
-                self.message_queue.put(("status", "正在安装SSHFS..."))
-                self.message_queue.put(("log", "[SSHFS] [开始] 安装SSHFS"))
-                
-                # 步骤1: 智能更新软件源（使用缓存机制）
-                self.message_queue.put(("log", "[SSHFS] [步骤1] 正在智能更新软件源..."))
-                
-                # 使用智能更新方法（非强制，会检查缓存）
-                update_success = self.smart_apt_update(force=False)
-                
-                if not update_success:
-                    # 如果更新失败，询问用户是否继续
-                    self.message_queue.put(("log", "[SSHFS] [警告] 软件源更新失败，但将尝试继续安装"))
-                
-                # 步骤2: 安装SSHFS
-                self.message_queue.put(("log", "[SSHFS] [步骤2] 正在安装SSHFS..."))
-                install_cmd = ["pkexec", "apt", "install", "-y", "sshfs"]
-                
-                # 使用Popen实时输出安装过程
-                install_process = subprocess.Popen(
-                    install_cmd, 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE, 
-                    text=True, 
-                    bufsize=1, 
-                    universal_newlines=True
-                )
-                
-                # 实时读取输出
-                while True:
-                    output = install_process.stdout.readline()
-                    if output == '' and install_process.poll() is not None:
-                        break
-                    if output:
-                        line = output.strip()
-                        if line and not line.startswith('WARNING:'):
-                            self.message_queue.put(("log", f"[软件包] [安装] {line}"))
-                
-                # 读取错误输出
-                stderr_output = install_process.stderr.read()
-                install_returncode = install_process.wait(timeout=120)
-                
-                if install_returncode == 0:
-                    self.message_queue.put(("log", "[SSHFS] [成功] SSHFS安装完成"))
-                    self.message_queue.put(("sshfs_status", "已安装"))
-                    self.message_queue.put(("sshfs_title", "SSHFS 配置 - 已安装"))
-                else:
-                    if "cancelled" in stderr_output.lower():
-                        self.message_queue.put(("log", "[SSHFS] [取消] 用户取消了安装权限授权"))
-                    else:
-                        self.message_queue.put(("log", f"[SSHFS] [失败] SSHFS安装失败: {stderr_output.strip()}"))
-                
-            except Exception as e:
-                self.message_queue.put(("log", f"[SSHFS] [错误] 安装SSHFS时出错: {str(e)}"))
-            finally:
-                self.message_queue.put(("progress", "stop"))
-                self.message_queue.put(("status", "SSHFS安装完成"))
-        
-        # 确认对话框
-        response = messagebox.askyesno(
-            "确认安装SSHFS",
-            "此操作将安装SSHFS工具。\n\n"
-            "是否继续？",
-            icon="info"
-        )
-        
-        if response:
-            threading.Thread(target=install_task, daemon=True).start()
 
     def check_sshfs_status(self):
         """检查SSHFS连接状态"""
@@ -7010,13 +6851,45 @@ class DeepinProjectDownloader:
                 messagebox.showwarning("警告", "SSH公钥文件不存在，请先生成SSH Key")
                 return
             
-            # 使用系统默认编辑器打开文件
-            subprocess.Popen(["xdg-open", ssh_key_path])
-            self.log_message(f"[SSH Key] 已打开SSH公钥文件: {ssh_key_path}")
+            # 读取SSH Key内容并显示在对话框中
+            with open(ssh_key_path, 'r') as f:
+                ssh_key_content = f.read().strip()
+            
+            # 创建显示对话框
+            dialog = tk.Toplevel(self.root)
+            dialog.title("SSH 公钥")
+            dialog.geometry("700x200")
+            dialog.transient(self.root)
+            dialog.grab_set()
+            
+            # 添加文本框显示内容
+            text_frame = ttk.Frame(dialog)
+            text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 5))
+            
+            text_widget = tk.Text(text_frame, wrap=tk.WORD, font=("Courier", 10))
+            text_widget.pack(fill=tk.BOTH, expand=True)
+            text_widget.insert(tk.END, ssh_key_content)
+            text_widget.config(state=tk.NORMAL)  # 允许选择复制
+            
+            # 按钮框架
+            btn_frame = ttk.Frame(dialog)
+            btn_frame.pack(fill=tk.X, padx=10, pady=(5, 10))
+            
+            def copy_and_close():
+                self.root.clipboard_clear()
+                self.root.clipboard_append(ssh_key_content)
+                self.root.update()
+                self.log_message("[SSH Key] 已复制SSH公钥到剪贴板")
+                dialog.destroy()
+            
+            ttk.Button(btn_frame, text="复制并关闭", command=copy_and_close, style='Success.TButton').pack(side=tk.RIGHT, padx=(5, 0))
+            ttk.Button(btn_frame, text="关闭", command=dialog.destroy).pack(side=tk.RIGHT)
+            
+            self.log_message(f"[SSH Key] 已显示SSH公钥内容")
             
         except Exception as e:
-            self.log_message(f"[SSH Key] 打开SSH Key文件失败: {str(e)}")
-            messagebox.showerror("错误", f"打开SSH Key文件失败: {str(e)}")
+            self.log_message(f"[SSH Key] 查看SSH Key失败: {str(e)}")
+            messagebox.showerror("错误", f"查看SSH Key失败: {str(e)}")
     
     def copy_ssh_key(self):
         """复制SSH Key内容到剪贴板"""
