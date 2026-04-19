@@ -11,6 +11,9 @@ plugins/*/*.py usr/bin/
 # 插件图标（同时安装到 /usr/share/dfm-tools/ 用于 .desktop 引用）
 plugins/*/*.svg usr/share/dfm-tools/
 
+# 插件 .desktop 文件安装到系统应用目录，便于系统工具启动
+plugins/*/*.desktop usr/share/applications/
+
 # 文件管理器集成菜单
 integration-all/integration-all.desktop usr/share/deepin/dde-file-manager/oem-menuextensions/
 integration-all/integration.svg usr/share/dfm-tools/
