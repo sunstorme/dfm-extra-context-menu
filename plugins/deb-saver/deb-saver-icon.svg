@@ -1,31 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="128" height="128" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <!-- DEB 保存器绿色渐变背景 -->
-    <linearGradient id="saverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#66bb6a;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#43a047;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <!-- 圆形背景 -->
-  <circle cx="512" cy="512" r="480" fill="url(#saverGradient)" />
+  <!-- 圆角背景 -->
+  <path d="M716.8 0H307.2C137.5488 0 0 137.5488 0 307.2v409.6c0 169.6512 137.5488 307.2 307.2 307.2h409.6c169.6512 0 307.2-137.5488 307.2-307.2V307.2c0-169.6512-137.5488-307.2-307.2-307.2z" fill="#E8F5E9" />
   
   <!-- 保存图标 -->
-  <g fill="#FFFFFF">
+  <g transform="translate(512,512) scale(0.7) translate(-512,-512)">
     <!-- 软盘主体 -->
-    <rect x="312" y="212" width="400" height="600" rx="32" />
+    <rect x="312" y="212" width="400" height="600" rx="32" fill="#43A047" />
     
     <!-- 软盘标签区域 -->
-    <rect x="372" y="272" width="280" height="200" rx="16" fill="#e0e0e0" />
+    <rect x="372" y="272" width="280" height="200" rx="16" fill="#C8E6C9" />
     
     <!-- 软盘滑块 -->
-    <rect x="432" y="332" width="160" height="80" rx="8" fill="#ffffff" />
+    <rect x="432" y="332" width="160" height="80" rx="8" fill="#FFFFFF" />
     
     <!-- 底部写保护标签 -->
-    <rect x="372" y="712" width="280" height="60" rx="8" fill="#e0e0e0" />
+    <rect x="372" y="712" width="280" height="60" rx="8" fill="#C8E6C9" />
     
     <!-- 保存符号 -->
-    <path d="M 512 412 L 572 492 L 542 492 L 542 572 L 482 572 L 482 492 L 452 492 Z" fill="#43a047" />
+    <path d="M 512 412 L 572 492 L 542 492 L 542 572 L 482 572 L 482 492 L 452 492 Z" fill="#E8F5E9" />
   </g>
 </svg>
