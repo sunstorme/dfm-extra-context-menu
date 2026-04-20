@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DFM Tools 插件管理器
+DDE Tools 插件管理器
 负责插件的发现、加载和依赖检测
 """
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     pm = get_plugin_manager()
 
     print("=" * 50)
-    print("DFM Tools 插件管理器")
+    print("DDE Tools 插件管理器")
     print("=" * 50)
     print()
 

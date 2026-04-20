@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-DFM 开发工具箱 - Deepin Project Downloader Backend
+DDE 开发工具箱 - Deepin Project Downloader Backend
 
 这是一个专为深度开发者设计的集成开发工具，提供项目管理、软件包管理、
 源码管理、SSH配置、配置与工具等多项功能。
@@ -389,13 +389,13 @@ class ProjectConfig:
     # 应用信息配置
     class AppInfo:
         """应用信息配置类"""
-        APP_NAME = "DFM 开发工具箱"
+        APP_NAME = "DFM开发工具箱"
         APP_AUTHOR = "zhanghongyuan"
         APP_EMAIL = "zhanghongyuan@uniontech.com(2063218120@qq.com)"
         APP_LICENSE = "GNU General Public License v3.0"
         APP_PROJECT_URL = "https://github.com/sunstorme/dfm-tools"
         APP_DESCRIPTION = (
-            "DFM 开发工具箱是一款专为深度开发者设计的集成开发工具，"
+            "DDE 开发工具箱是一款专为深度开发者设计的集成开发工具，"
             "提供项目管理、软件包管理、源码管理、SSH配置、配置与工具等多项功能。"
         )
         APP_FEATURES = [
@@ -407,7 +407,7 @@ class ProjectConfig:
             "• SSHFS挂载：远程文件系统挂载和管理",
             "• 系统信息：查看系统硬件和产品信息"
         ]
-        APP_FOOTER = "感谢您使用 DFM 开发工具箱！\n如有问题或建议，欢迎反馈。"
+        APP_FOOTER = "感谢您使用 DFM开发工具箱！\n如有问题或建议，欢迎反馈。"
         
         # 扩展配置规范说明
         EXTENSION_CONFIG_GUIDE = """配置文件位置: ~/.deepin_project_downloader.json

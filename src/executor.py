@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DFM Tools 命令执行器
+DDE Tools 命令执行器
 负责执行外部命令，支持多种执行模式
 """
 
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     import sys
 
     print("=" * 50)
-    print("DFM Tools 命令执行器测试")
+    print("DDE Tools 命令执行器测试")
     print("=" * 50)
     print()
 

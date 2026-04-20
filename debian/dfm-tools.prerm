@@ -4,6 +4,6 @@ set -e
 # DFMT-Tools prerm script
 # 在卸载前清理系统
 
-echo "清理 DFM Tools..."
+echo "清理 DDE Tools..."
 
-echo "DFM Tools 已清理。"
+echo "DDE Tools 已清理。"

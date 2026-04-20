@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DFM Tools 主程序入口
+DDE Tools 主程序入口
 
 用法:
   dfm-tools              # 启动系统托盘
@@ -60,14 +60,14 @@ class FirstRunWizard:
         dialog = Gtk.MessageDialog(
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text="欢迎使用 DFM Tools"
+            text="欢迎使用 DDE Tools"
         )
         dialog.format_secondary_text(
-            "是否在登录时自动启动 DFM Tools 托盘图标？\n\n"
+            "是否在登录时自动启动 DDE Tools 托盘图标？\n\n"
             "托盘图标提供快速访问开发工具的菜单，\n"
             "可以稍后在设置中更改。"
         )
-        dialog.set_title("DFM Tools 首次运行")
+        dialog.set_title("DDE Tools 首次运行")
 
         response = dialog.run()
         dialog.destroy()
@@ -92,8 +92,8 @@ class FirstRunWizard:
         # 创建自启动 .desktop 文件
         desktop_content = f"""[Desktop Entry]
 Type=Application
-Name=DFM Tools
-Name[zh_CN]=DFM 开发工具箱
+Name=DDE Tools
+Name[zh_CN]=DFM开发工具箱
 Comment=Development toolbox tray icon
 Comment[zh_CN]=开发工具箱托盘图标
 Exec=dfm-tools --tray
@@ -130,7 +130,7 @@ X-GNOME-Autostart-enabled=true
 # ============================================================================
 
 class DfmToolsApp:
-    """DFM Tools 主程序"""
+    """DDE Tools 主程序"""
 
     def __init__(self):
         """初始化主程序"""
@@ -140,7 +140,7 @@ class DfmToolsApp:
     def run_tray(self):
         """运行托盘模式"""
         print("=" * 50)
-        print("DFM Tools - 系统托盘模式")
+        print("DDE Tools - 系统托盘模式")
         print("=" * 50)
         print()
 

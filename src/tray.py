@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DFM Tools 托盘图标
+DDE Tools 托盘图标
 基于 Ayatana AppIndicator 的系统托盘实现
 """
 
@@ -260,10 +260,10 @@ class TrayIcon:
         dialog = Gtk.MessageDialog(
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK,
-            text="DFM Tools"
+            text="DFMTools"
         )
         dialog.format_secondary_text(
-            "DFM Tools - 开发工具箱\n\n"
+            "DDE Tools - 开发工具箱\n\n"
             "系统托盘 + 文件管理器插件\n"
             "支持插件化扩展"
         )

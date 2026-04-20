@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-DFM Tools 配置管理器
+DDE Tools 配置管理器
 负责从插件生成托盘菜单配置，支持配置合并
 """
 
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     cm = get_config_manager()
 
     print("=" * 50)
-    print("DFM Tools 配置管理器")
+    print("DDE Tools 配置管理器")
     print("=" * 50)
     print()
 

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=DFM Tools
-Name[zh_CN]=DFM 开发工具箱
+Name=DDE Tools
+Name[zh_CN]=DFM开发工具箱
 Comment=Development toolbox tray icon
 Comment[zh_CN]=开发工具箱托盘图标
 Exec=dfm-tools --tray

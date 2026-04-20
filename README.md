@@ -1,4 +1,4 @@
-# DFM Tools - 开发工具箱
+# DDE Tools - 开发工具箱
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -6,7 +6,7 @@
 
 ## 项目简介
 
-DFM Tools 是一个统一的开发工具箱，通过插件化架构提供：
+DDE Tools 是一个统一的开发工具箱，通过插件化架构提供：
 - **系统托盘图标** - 快速访问开发工具的统一入口
 - **文件管理器集成** - 右键菜单扩展，支持常用开发操作
 - **外部配置扩展** - 支持用户自定义 JSON 配置添加新功能
@@ -91,7 +91,7 @@ dfm-tools
 
 ## 外部配置扩展
 
-DFM Tools 支持通过 JSON 配置文件自定义托盘菜单，无需修改代码。
+DDE Tools 支持通过 JSON 配置文件自定义托盘菜单，无需修改代码。
 
 ### 配置文件位置
 

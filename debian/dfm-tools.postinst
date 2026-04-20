@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-# DFM-Tools postinst script
+# DDE-Tools postinst script
 # 在安装后配置系统
 
-echo "配置 DFM Tools..."
+echo "配置 DDE Tools..."
 
 # 移除旧版本的独立包（如果存在）
 remove_old_packages() {
@@ -40,5 +40,5 @@ esac
 # 确保目录存在
 mkdir -p /usr/share/deepin/dde-file-manager/oem-menuextensions
 
-echo "DFM Tools 安装完成！"
+echo "DDE Tools 安装完成！"
 echo "重启文件管理器后，右键菜单将显示开发工具选项。"
