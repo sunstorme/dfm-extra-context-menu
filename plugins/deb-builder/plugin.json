@@ -1,0 +1,17 @@
+{
+  "id": "deb-builder",
+  "name": "DEB Builder",
+  "name_zh_CN": "构建DEB包",
+  "description": "Build DEB and Linglong packages",
+  "description_zh_CN": "构建DEB包和玲珑包",
+  "icon": "deb-package-icon.svg",
+  "category": "build",
+  "depends": ["dpkg-buildpackage", "dh_clean"],
+  "menu_types": ["SingleDir"],
+  "command": "/usr/bin/deb-builder-launcher.sh %p",
+  "tray": {
+    "label": "构建DEB包",
+    "group": "构建工具",
+    "order": 10
+  }
+}

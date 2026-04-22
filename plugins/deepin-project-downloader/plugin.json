@@ -10,7 +10,7 @@
   "menu_types": ["EmptyArea"],
   "command": "/usr/bin/deepin-project-downloader-launcher.sh",
   "tray": {
-    "label": "开发工具箱",
+    "label": "DDE开发工具箱",
     "group": "开发工具",
     "order": 60
   }

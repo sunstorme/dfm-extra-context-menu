@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# 快速DEB包构建脚本
-# 使用方法: ./deb-builder-launcher.sh [源码目录]
+# 快速DEB包/玲珑包构建脚本
+# 使用方法: ./deb-builder-launcher.sh [源码目录] [格式] [构建后清理选项] [并行任务数]
+# 格式: deb(默认) | linglong | all
 
 set -e
 
@@ -79,6 +80,183 @@ clean_build_cache() {
     
     # 发送清理完成通知
     send_notification "构建缓存清理完成" "已清理: $(basename "$source_dir")" "normal"
+}
+
+# 构建玲珑包
+build_linglong() {
+    local source_dir="$1"
+    local packages_dir="$2"
+    
+    log "开始构建玲珑包..."
+    
+    # 检查 linglong.yaml 是否存在
+    if [ ! -f "$source_dir/linglong.yaml" ]; then
+        error "未找到 linglong.yaml 文件: $source_dir/linglong.yaml"
+        return 1
+    fi
+    
+    # 检查 ll-builder 是否可用
+    if ! command -v ll-builder >/dev/null 2>&1; then
+        error "ll-builder 命令未找到，请安装 linglong-builder 包"
+        return 1
+    fi
+    
+    # 切换到源码目录
+    cd "$source_dir"
+    
+    # 发送开始构建通知
+    send_notification "开始构建玲珑包" "正在构建: $(basename "$(pwd)")" "low"
+    
+    # 记录构建开始时间
+    local build_start_time=$(date +%s)
+    
+    # 执行 ll-builder build
+    log "执行: ll-builder build"
+    if ll-builder build; then
+        success "ll-builder build 成功!"
+    else
+        error "ll-builder build 失败!"
+        return 1
+    fi
+    
+    # 尝试导出玲珑包
+    local export_success=false
+    local export_type=""
+    
+    # 先尝试导出 UAB 文件
+    log "执行: ll-builder export (导出 UAB)"
+    if ll-builder export; then
+        export_success=true
+        export_type="UAB"
+        success "玲珑包 UAB 导出成功!"
+    else
+        log "UAB 导出失败，尝试导出 layer 文件..."
+        # UAB 导出失败，尝试导出 layer
+        log "执行: ll-builder export --layer"
+        if ll-builder export --layer; then
+            export_success=true
+            export_type="Layer"
+            success "玲珑包 Layer 导出成功!"
+        else
+            error "玲珑包导出失败 (UAB 和 Layer 都失败)!"
+            return 1
+        fi
+    fi
+    
+    local build_end_time=$(date +%s)
+    local build_duration=$((build_end_time - build_start_time))
+    local build_minutes=$((build_duration / 60))
+    local build_seconds=$((build_duration % 60))
+    
+    success "玲珑包构建成功! (导出格式: $export_type)"
+    success "构建耗时: ${build_minutes}分${build_seconds}秒"
+    
+    # 移动构建产物到packages目录
+    move_linglong_packages "$source_dir" "$packages_dir"
+    
+    # 发送成功通知
+    send_notification "玲珑包构建完成" "成功构建: $(basename "$source_dir") ($export_type)" "normal"
+    
+    return 0
+}
+
+# 移动玲珑包构建产物到packages目录
+move_linglong_packages() {
+    local source_dir="$1"
+    local packages_dir="$2"
+    
+    log "移动玲珑包构建产物到packages目录..."
+    
+    # 创建packages目录（如果不存在）
+    if [ ! -d "$packages_dir" ]; then
+        log "创建packages目录: $packages_dir"
+        mkdir -p "$packages_dir"
+    fi
+    
+    local moved_count=0
+    local uab_count=0
+    local layer_count=0
+    
+    # 查找并移动 .uab 文件
+    local uab_files=$(find "$source_dir" -maxdepth 2 -name "*.uab" 2>/dev/null || true)
+    if [ -n "$uab_files" ]; then
+        while IFS= read -r pkg_file; do
+            if [ -f "$pkg_file" ]; then
+                local pkg_name=$(basename "$pkg_file")
+                log "  移动 UAB: $pkg_name"
+                mv "$pkg_file" "$packages_dir/"
+                moved_count=$((moved_count + 1))
+                uab_count=$((uab_count + 1))
+            fi
+        done <<< "$uab_files"
+    fi
+    
+    # 查找并移动 .layer 文件
+    local layer_files=$(find "$source_dir" -maxdepth 2 -name "*.layer" 2>/dev/null || true)
+    if [ -n "$layer_files" ]; then
+        while IFS= read -r pkg_file; do
+            if [ -f "$pkg_file" ]; then
+                local pkg_name=$(basename "$pkg_file")
+                log "  移动 Layer: $pkg_name"
+                mv "$pkg_file" "$packages_dir/"
+                moved_count=$((moved_count + 1))
+                layer_count=$((layer_count + 1))
+            fi
+        done <<< "$layer_files"
+    fi
+    
+    # 查找并移动 .linya 文件（备用格式）
+    local linya_files=$(find "$source_dir" -maxdepth 2 -name "*.linya" 2>/dev/null || true)
+    if [ -n "$linya_files" ]; then
+        while IFS= read -r pkg_file; do
+            if [ -f "$pkg_file" ]; then
+                local pkg_name=$(basename "$pkg_file")
+                log "  移动 Layer (.linya): $pkg_name"
+                mv "$pkg_file" "$packages_dir/"
+                moved_count=$((moved_count + 1))
+                layer_count=$((layer_count + 1))
+            fi
+        done <<< "$linya_files"
+    fi
+    
+    if [ $moved_count -gt 0 ]; then
+        local summary=""
+        if [ $uab_count -gt 0 ] && [ $layer_count -gt 0 ]; then
+            summary=" ($uab_count 个 UAB, $layer_count 个 Layer)"
+        elif [ $uab_count -gt 0 ]; then
+            summary=" ($uab_count 个 UAB)"
+        elif [ $layer_count -gt 0 ]; then
+            summary=" ($layer_count 个 Layer)"
+        fi
+        success "已移动 $moved_count 个玲珑包${summary}到: $packages_dir"
+        
+        # 显示packages目录中的玲珑包文件
+        echo ""
+        log "packages目录中的玲珑包文件:"
+        ls -lh "$packages_dir"/*.{uab,layer,linya} 2>/dev/null || true
+    else
+        log "未找到 .uab、.layer 或 .linya 文件"
+    fi
+    
+    # 使用系统默认应用打开packages目录
+    log "正在打开packages目录..."
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$packages_dir" >/dev/null 2>&1 &
+        success "已打开packages目录"
+    elif command -v deepin-file-manager >/dev/null 2>&1; then
+        deepin-file-manager "$packages_dir" >/dev/null 2>&1 &
+        success "已打开packages目录"
+    elif command -v nautilus >/dev/null 2>&1; then
+        nautilus "$packages_dir" >/dev/null 2>&1 &
+        success "已打开packages目录"
+    elif command -v dolphin >/dev/null 2>&1; then
+        dolphin "$packages_dir" >/dev/null 2>&1 &
+        success "已打开packages目录"
+    else
+        log "提示: 无法自动打开packages目录，请手动打开: $packages_dir"
+    fi
+    
+    return 0
 }
 
 # 移动构建产物到packages目录
@@ -231,16 +409,34 @@ show_built_packages() {
 
 # 主函数
 main() {
-    local source_dir="${1:-.}"
-    local clean_after_build="${2:-yes}"  # 默认构建后清理
-    local parallel_jobs="${3:-auto}"     # 并行任务数，默认自动检测
+    local source_dir
+    local format
+    local clean_after_build
+    local parallel_jobs
+    
+    # 智能解析参数：如果第一个参数是格式名称，则使用当前目录
+    if [ "${1:-}" = "deb" ] || [ "${1:-}" = "linglong" ] || [ "${1:-}" = "all" ]; then
+        source_dir="."
+        format="${1:-deb}"
+        clean_after_build="${2:-yes}"
+        parallel_jobs="${3:-auto}"
+    else
+        source_dir="${1:-.}"
+        format="${2:-deb}"
+        clean_after_build="${3:-yes}"
+        parallel_jobs="${4:-auto}"
+    fi
     
     # 确定packages目录路径（项目目录的上一级目录的packages子目录）
     local project_parent_dir="$(cd "$source_dir/.." && pwd)"
     local packages_dir="$project_parent_dir/packages"
     
+    # 构建结果标志
+    local deb_build_success=false
+    local linglong_build_success=false
+    
     echo "=========================================="
-    echo "        快速DEB包构建"
+    echo "        快速包构建工具"
     echo "=========================================="
     echo
     
@@ -250,9 +446,25 @@ main() {
         exit 1
     fi
     
-    if [ ! -d "$source_dir/debian" ]; then
-        error "缺少debian目录: $source_dir/debian"
-        exit 1
+    # 根据构建格式检查必要文件
+    if [ "$format" = "deb" ] || [ "$format" = "all" ]; then
+        if [ ! -d "$source_dir/debian" ]; then
+            error "缺少debian目录: $source_dir/debian"
+            exit 1
+        fi
+    fi
+    
+    if [ "$format" = "linglong" ] || [ "$format" = "all" ]; then
+        if [ ! -f "$source_dir/linglong.yaml" ]; then
+            error "缺少linglong.yaml文件: $source_dir/linglong.yaml"
+            exit 1
+        fi
+        
+        # 检查 ll-builder 是否可用
+        if ! command -v ll-builder >/dev/null 2>&1; then
+            error "ll-builder 命令未找到，请安装 linglong-builder 包"
+            exit 1
+        fi
     fi
     
     # 切换到源码目录
@@ -276,109 +488,144 @@ main() {
         exit 1
     fi
     
-    log "开始构建DEB包..."
     log "源码目录: $(pwd)"
+    log "构建格式: $format"
     log "构建后清理: $clean_after_build"
     log "系统CPU核心数: $cpu_count"
     log "使用并行任务数: $parallel_num"
     log "构建产物将移动到: $packages_dir"
+    echo ""
     
-    # 发送开始构建通知
-    send_notification "开始构建DEB包" "正在构建: $(basename "$(pwd)") (并行: $parallel_num)" "low"
-    
-    # 设置构建环境
-    export DEB_BUILD_OPTIONS="parallel=$parallel_num"
-    
-    # 验证debian/rules是否支持并行构建
-    log "验证debian/rules配置..."
-    if grep -q "parallel" debian/rules; then
-        success "debian/rules已配置并行构建支持"
-    else
-        log "警告: debian/rules可能未正确配置并行构建"
-        log "当前DEB_BUILD_OPTIONS=$DEB_BUILD_OPTIONS"
-    fi
-    
-    # 执行构建命令
-    log "执行: dpkg-buildpackage -us -uc -b"
-    log "构建选项: DEB_BUILD_OPTIONS=$DEB_BUILD_OPTIONS"
-    
-    # 构建结果标志
-    local build_success=false
-    
-    # 记录构建开始时间
-    local build_start_time=$(date +%s)
-    
-    if dpkg-buildpackage -us -uc -b; then
-        local build_end_time=$(date +%s)
-        local build_duration=$((build_end_time - build_start_time))
-        local build_minutes=$((build_duration / 60))
-        local build_seconds=$((build_duration % 60))
+    # 构建 DEB 包
+    if [ "$format" = "deb" ] || [ "$format" = "all" ]; then
+        log "========== 开始构建 DEB 包 =========="
         
-        build_success=true
-        success "DEB包构建成功!"
-        success "构建耗时: ${build_minutes}分${build_seconds}秒 (并行任务数: $parallel_num)"
+        # 设置构建环境
+        export DEB_BUILD_OPTIONS="parallel=$parallel_num"
         
-        # 移动构建产物到packages目录
-        move_built_packages "$source_dir" "$packages_dir"
-        
-        # 显示构建产物
-        show_built_packages "$source_dir" "$packages_dir"
-        
-        # 发送成功通知 - 只获取当前项目的包
-        local project_name=""
-        project_name=$(basename "$source_dir")
-        if [ "$project_name" = "." ]; then
-            project_name=$(basename "$(pwd)")
-        fi
-        
-        # 从packages目录获取构建的deb包
-        local recent_debs=$(find "$packages_dir" -maxdepth 1 -name "*.deb" -mmin -5 2>/dev/null || true)
-        if [ -z "$recent_debs" ]; then
-            recent_debs=$(find "$packages_dir" -maxdepth 1 -name "*${project_name}*.deb" -o -name "dfm-tools-*.deb" 2>/dev/null | head -1 || true)
-        fi
-        
-        if [ -n "$recent_debs" ]; then
-            local deb_name=$(basename "$recent_debs")
-            send_notification "DEB包构建完成" "成功构建: $deb_name" "normal"
+        # 验证debian/rules是否支持并行构建
+        log "验证debian/rules配置..."
+        if grep -q "parallel" debian/rules; then
+            success "debian/rules已配置并行构建支持"
         else
-            send_notification "DEB包构建完成" "构建成功，但未找到当前项目的构建产物" "normal"
+            log "警告: debian/rules可能未正确配置并行构建"
+            log "当前DEB_BUILD_OPTIONS=$DEB_BUILD_OPTIONS"
         fi
         
-    else
-        error "DEB包构建失败!"
+        # 执行构建命令
+        log "执行: dpkg-buildpackage -us -uc -b"
+        log "构建选项: DEB_BUILD_OPTIONS=$DEB_BUILD_OPTIONS"
         
-        # 发送失败通知
-        send_notification "DEB包构建失败" "构建过程中出现错误，请检查构建日志" "critical"
-    fi
-    
-    # 无论构建成功还是失败，都执行清理（如果设置了清理选项）
-    if [ "$clean_after_build" = "yes" ]; then
+        # 记录构建开始时间
+        local build_start_time=$(date +%s)
+        
+        # 发送开始构建通知
+        send_notification "开始构建DEB包" "正在构建: $(basename "$(pwd)") (并行: $parallel_num)" "low"
+        
+        if dpkg-buildpackage -us -uc -b; then
+            local build_end_time=$(date +%s)
+            local build_duration=$((build_end_time - build_start_time))
+            local build_minutes=$((build_duration / 60))
+            local build_seconds=$((build_duration % 60))
+            
+            deb_build_success=true
+            success "DEB包构建成功!"
+            success "构建耗时: ${build_minutes}分${build_seconds}秒 (并行任务数: $parallel_num)"
+            
+            # 移动构建产物到packages目录
+            move_built_packages "$source_dir" "$packages_dir"
+            
+            # 显示构建产物
+            show_built_packages "$source_dir" "$packages_dir"
+            
+            # 发送成功通知
+            local project_name=""
+            project_name=$(basename "$source_dir")
+            if [ "$project_name" = "." ]; then
+                project_name=$(basename "$(pwd)")
+            fi
+            
+            # 从packages目录获取构建的deb包
+            local recent_debs=$(find "$packages_dir" -maxdepth 1 -name "*.deb" -mmin -5 2>/dev/null || true)
+            if [ -z "$recent_debs" ]; then
+                recent_debs=$(find "$packages_dir" -maxdepth 1 -name "*${project_name}*.deb" -o -name "dfm-tools-*.deb" 2>/dev/null | head -1 || true)
+            fi
+            
+            if [ -n "$recent_debs" ]; then
+                local deb_name=$(basename "$recent_debs")
+                send_notification "DEB包构建完成" "成功构建: $deb_name" "normal"
+            else
+                send_notification "DEB包构建完成" "构建成功，但未找到当前项目的构建产物" "normal"
+            fi
+            
+        else
+            error "DEB包构建失败!"
+            
+            # 发送失败通知
+            send_notification "DEB包构建失败" "构建过程中出现错误，请检查构建日志" "critical"
+        fi
+        
         echo ""
-        if [ "$build_success" = true ]; then
-            log "开始清理构建缓存..."
-        else
-            log "构建失败，开始清理构建缓存..."
+    fi
+    
+    # 构建玲珑包
+    if [ "$format" = "linglong" ] || [ "$format" = "all" ]; then
+        log "========== 开始构建玲珑包 =========="
+        
+        if build_linglong "$source_dir" "$packages_dir"; then
+            linglong_build_success=true
         fi
-        clean_build_cache "$source_dir"
+        
+        echo ""
+    fi
+    
+    # 清理构建缓存
+    if [ "$clean_after_build" = "yes" ]; then
+        if [ "$format" = "deb" ] || [ "$format" = "all" ]; then
+            if [ "$deb_build_success" = true ]; then
+                log "开始清理DEB构建缓存..."
+            else
+                log "DEB构建失败，开始清理构建缓存..."
+            fi
+            clean_build_cache "$source_dir"
+        fi
     else
         log "跳过构建缓存清理"
     fi
     
-    # 如果构建失败，退出码为1
-    if [ "$build_success" = false ]; then
-        exit 1
+    # 根据构建结果决定退出码
+    if [ "$format" = "all" ]; then
+        # all 模式：至少一个成功就算成功
+        if [ "$deb_build_success" = true ] || [ "$linglong_build_success" = true ]; then
+            exit 0
+        else
+            exit 1
+        fi
+    elif [ "$format" = "deb" ]; then
+        if [ "$deb_build_success" = false ]; then
+            exit 1
+        fi
+    elif [ "$format" = "linglong" ]; then
+        if [ "$linglong_build_success" = false ]; then
+            exit 1
+        fi
     fi
 }
 
 # 显示帮助
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     cat << EOF
-快速DEB包构建脚本
+快速DEB包/玲珑包构建脚本
 
-用法: $0 [源码目录] [构建后清理选项] [并行任务数]
+用法: $0 [源码目录|格式] [格式] [构建后清理选项] [并行任务数]
 
 参数:
-    源码目录        包含debian目录的源码路径 (默认: 当前目录)
+    源码目录        包含debian目录或linglong.yaml的源码路径 (默认: 当前目录)
+                    如果省略，第一个参数可以是格式名称
+    格式            deb/linglong/all (默认: deb)
+                    deb      - 仅构建DEB包
+                    linglong - 仅构建玲珑包
+                    all      - 同时构建DEB包和玲珑包
     构建后清理选项  yes/no (默认: yes，构建完成后自动清理构建缓存)
     并行任务数      auto/half/数字 (默认: auto)
                     auto  - 自动使用所有CPU核心
@@ -386,29 +633,39 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
                     数字  - 指定具体的并行任务数
 
 示例:
-    $0                           # 在当前目录构建并清理，使用所有CPU核心
-    $0 /path/to/source           # 在指定目录构建并清理，使用所有CPU核心
-    $0 . no                      # 在当前目录构建但不清理，使用所有CPU核心
-    $0 . yes half                # 在当前目录构建并清理，使用一半CPU核心
-    $0 . yes 8                   # 在当前目录构建并清理，使用8个并行任务
-    $0 /path/to/source no 4      # 在指定目录构建但不清理，使用4个并行任务
+    $0                           # 在当前目录构建DEB包并清理，使用所有CPU核心
+    $0 linglong                  # 在当前目录构建玲珑包并清理，使用所有CPU核心
+    $0 all                       # 在当前目录同时构建DEB包和玲珑包
+    $0 /path/to/source           # 在指定目录构建DEB包并清理，使用所有CPU核心
+    $0 /path/to/source linglong  # 在指定目录构建玲珑包并清理，使用所有CPU核心
+    $0 . linglong                # 在当前目录构建玲珑包并清理，使用所有CPU核心
+    $0 linglong no               # 在当前目录构建玲珑包但不清理，使用所有CPU核心
+    $0 all yes half              # 在当前目录构建两种包并清理，使用一半CPU核心
+    $0 all yes 8                 # 在当前目录构建两种包并清理，使用8个并行任务
+    $0 /path/to/source linglong no 4  # 在指定目录构建玲珑包但不清理，使用4个并行任务
 
 功能特性:
+    - 支持DEB包和玲珑包构建 (deb/linglong/all)
     - 灵活的并行构建选项 (auto/half/指定数字)
     - 自动检测CPU核心数 (使用nproc命令)
     - 构建完成后自动使用dh_clean清理构建缓存
     - 桌面通知提示构建状态
     - 显示构建产物信息
     - 构建产物自动移动到packages目录（不污染源码目录）
-    - 同时处理.deb、.buildinfo、.changes文件
+    - 同时处理.deb、.buildinfo、.changes、.linya、.uab文件
     - 构建成功后自动打开packages目录
     - DEB_BUILD_OPTIONS环境变量正确设置
+
+玲珑包构建依赖:
+    - linglong-builder (提供 ll-builder 命令)
+    - linglong.yaml 文件（项目根目录）
 
 环境变量:
     DEB_BUILD_OPTIONS  自动设置为 parallel=N，其中N为并行任务数
 
 构建产物:
-    - 构建的.deb、.buildinfo、.changes文件会自动移动到脚本所在目录的packages子目录
+    - DEB包: .deb、.buildinfo、.changes文件会自动移动到packages目录
+    - 玲珑包: .uab 或 .layer 文件会自动移动到packages目录
     - packages目录会自动创建（如果不存在）
     - 构建成功后会自动打开packages目录（使用系统默认文件管理器）
 

@@ -6,12 +6,18 @@ Name[zh_CN]=开发工具
 X-DFM-MenuTypes=SingleDir;MultiFileDirs;EmptyArea;
 Comment=Integrated development tools menu
 Comment[zh_CN]=集成开发工具菜单
-Actions=deb-builder;gitk;vscode;qtcreator;deepin-project-downloader;dde-dconfig-editor;deb-saver;d-feet;deb-changelog
+Actions=deb-builder;linglong-builder;gitk;vscode;qtcreator;deepin-project-downloader;dde-dconfig-editor;deb-saver;d-feet;deb-changelog
 
 [Desktop Action deb-builder]
 Name=DEB Builder
 Name[zh_CN]=构建DEB包
-Exec=/usr/bin/deb-builder-launcher.sh %p
+Exec=/usr/bin/deb-builder-launcher.sh %p deb
+Icon=/usr/share/dfm-tools/deb-package-icon.svg
+
+[Desktop Action linglong-builder]
+Name=Linglong Builder
+Name[zh_CN]=构建玲珑包
+Exec=/usr/bin/deb-builder-launcher.sh %p linglong
 Icon=/usr/share/dfm-tools/deb-package-icon.svg
 
 [Desktop Action gitk]

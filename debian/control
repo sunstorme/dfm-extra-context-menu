@@ -19,7 +19,8 @@ Depends: ${misc:Depends},
   python3-tk,
   dde-dconfig-editor,
   d-feet,
-  zenity | kdialog
+  zenity | kdialog,
+  linglong-builder
 Recommends:
   code,
   qtcreator
