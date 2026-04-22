@@ -1,3 +1,15 @@
+dfm-tools (1.5.7) unstable; urgency=medium
+
+  * chore: Update version to 1.5.7
+  * feat(deb-builder): add Linglong package build support
+  * refactor(ui): rename branding from DFM to DDE Tools and update icon design
+  * feat: consolidate plugins into single package with tray icon and plugin system
+  * style(icons): update plugin icons to rounded square design
+  * build(debian): install plugin desktop files to applications dir
+  * refactor(ui): consolidate config sections and simplify layout
+
+ -- zhanghongyuan <2063218120@qq.com>  Wed, 22 Apr 2026 15:17:50 +0800
+
 dfm-tools (1.5.6) unstable; urgency=medium
 
   * chore: Update version to 1.5.6
