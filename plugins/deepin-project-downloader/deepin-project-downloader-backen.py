@@ -325,7 +325,7 @@ class ProjectConfig:
         # 组件尺寸配置
         BORDER_WIDTH_THIN = 1
         BORDER_WIDTH_THICK = 2
-        PADDING_SMALL = (8, 4)
+        PADDING_SMALL = (2, 4)
         PADDING_MEDIUM = (4, 4)
         PADDING_LARGE = [10, 5]
         ROW_HEIGHT = 25
@@ -1741,7 +1741,7 @@ class DeepinProjectDownloader:
         source_combo.bind('<<ComboboxSelected>>', self.on_source_changed)
         
         ttk.Label(self.basic_content_frame, text="(优先推荐使用 Gitee 源，速度更快)",
-                 foreground="gray").grid(row=0, column=2, padx=(0, 10), pady=(8, 2), sticky="w")
+                 foreground="gray").grid(row=0, column=3, padx=(0, 10), pady=(8, 2), sticky="w")
         
         # 第二行：保存路径
         ttk.Label(self.basic_content_frame, text="保存路径:").grid(row=1, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
@@ -2808,6 +2808,26 @@ class DeepinProjectDownloader:
         self.refresh_ssh_info()
         self.log_message("[SSH] 已刷新SSH状态信息")
     
+    def send_notification(self, title, message, icon=None):
+        """发送桌面通知
+        
+        参数:
+            title: 通知标题
+            message: 通知内容
+            icon: 可选的通知图标名称
+        """
+        try:
+            cmd = ["notify-send"]
+            if icon:
+                cmd.extend(["-i", icon])
+            cmd.extend([title, message])
+            subprocess.run(cmd, check=True, timeout=5)
+        except FileNotFoundError:
+            # 如果notify-send不存在，只记录日志
+            self.log_message(f"[通知] {title}: {message}")
+        except Exception as e:
+            self.log_message(f"[通知] 发送通知失败: {str(e)}")
+    
     def copy_ssh_address(self):
         """复制SSH地址到剪贴板"""
         try:
@@ -2818,10 +2838,71 @@ class DeepinProjectDownloader:
                 self.root.clipboard_append(ssh_address)
                 self.root.update()  # 确保剪贴板更新
                 self.log_message(f"[SSH] 已复制SSH地址到剪贴板: {ssh_address}")
+                # 发送通知
+                self.send_notification("SSH地址已复制", f"已复制: {ssh_address}", "dialog-information")
             else:
                 self.log_message("[SSH] SSH地址无效，无法复制")
+                self.send_notification("复制失败", "SSH地址无效", "dialog-error")
         except Exception as e:
             self.log_message(f"[SSH] 复制失败: {str(e)}")
+            self.send_notification("复制失败", str(e), "dialog-error")
+    
+    def copy_local_git_source(self, project_name):
+        """复制本地Git仓库的克隆地址到剪贴板
+        
+        功能：
+        - 生成ssh格式的git clone命令
+        - 复制到剪贴板
+        - 打印到日志
+        - 发送桌面通知（不使用弹窗）
+        """
+        try:
+            # 获取当前用户名
+            import getpass
+            current_user = getpass.getuser()
+            
+            # 获取项目路径
+            project_path = os.path.join(self.save_path.get(), project_name)
+            
+            # 检查项目是否存在
+            if not os.path.exists(project_path):
+                self.log_message(f"[Git源] 项目目录不存在: {project_name}")
+                self.send_notification("复制失败", f"项目 {project_name} 目录不存在", "dialog-error")
+                return
+            
+            # 检查是否是git仓库
+            git_dir = os.path.join(project_path, ".git")
+            if not os.path.exists(git_dir):
+                self.log_message(f"[Git源] {project_name} 不是Git仓库")
+                self.send_notification("复制失败", f"{project_name} 不是Git仓库", "dialog-error")
+                return
+            
+            # 生成git clone命令
+            # 格式: git clone ssh://本机当前用户名@10.8.12.220/home/zhy/debug/deepin-movie-reborn
+            # 这里使用固定的IP 10.8.12.220
+            git_clone_cmd = f"git clone ssh://{current_user}@10.8.12.220{project_path}"
+            
+            # 复制到剪贴板
+            self.root.clipboard_clear()
+            self.root.clipboard_append(git_clone_cmd)
+            self.root.update()  # 确保剪贴板更新
+            
+            # 打印到日志
+            self.log_message(f"[Git源] 已复制本地Git源地址到剪贴板")
+            self.log_message(f"[Git源] 项目: {project_name}")
+            self.log_message(f"[Git源] 路径: {project_path}")
+            self.log_message(f"[Git源] 命令: {git_clone_cmd}")
+            
+            # 发送桌面通知
+            self.send_notification(
+                "Git源地址已复制",
+                f"项目: {project_name}\n{git_clone_cmd}",
+                "dialog-information"
+            )
+            
+        except Exception as e:
+            self.log_message(f"[Git源] 复制失败: {str(e)}")
+            self.send_notification("复制失败", str(e), "dialog-error")
 
     # SSHFS相关方法
     def toggle_sshfs_section(self):
@@ -3525,10 +3606,14 @@ class DeepinProjectDownloader:
                 self.root.clipboard_append(command)
                 self.root.update()  # 确保剪贴板更新
                 self.log_message(f"[SSHFS] 已复制命令到剪贴板: {command}")
+                # 发送通知
+                self.send_notification("SSHFS命令已复制", f"已复制: {command}", "dialog-information")
             else:
                 self.log_message("[SSHFS] SSHFS命令为空，无法复制")
+                self.send_notification("复制失败", "SSHFS命令为空", "dialog-error")
         except Exception as e:
             self.log_message(f"[SSHFS] 复制失败: {str(e)}")
+            self.send_notification("复制失败", str(e), "dialog-error")
 
     def select_sshfs_local_path(self):
         """选择SSHFS本地路径"""
@@ -4134,6 +4219,8 @@ class DeepinProjectDownloader:
                       command=lambda name=project_name: self.delete_project_dir(name)).pack(side=tk.LEFT, padx=1)
             ttk.Button(action_frame, text="打包", width=4, style='Success.TButton',
                       command=lambda name=project_name: self.deb_packet_generate_dir(name)).pack(side=tk.LEFT, padx=1)
+            ttk.Button(action_frame, text="复制本地git", width=10, style='Primary.TButton',
+                      command=lambda name=project_name: self.copy_local_git_source(name)).pack(side=tk.LEFT, padx=1)
             
             row += 1
     
@@ -4159,17 +4246,17 @@ class DeepinProjectDownloader:
         header_frame.pack(fill=tk.X, pady=(0, 2))
         
         # 配置标题列权重
-        header_frame.columnconfigure(0, weight=1, minsize=80)   # 选择列
-        header_frame.columnconfigure(1, weight=3, minsize=200)  # 项目列  
-        header_frame.columnconfigure(2, weight=2, minsize=100)  # 状态列
-        header_frame.columnconfigure(3, weight=3, minsize=200)  # 分支列
-        header_frame.columnconfigure(4, weight=2, minsize=150)  # 进度列
-        header_frame.columnconfigure(5, weight=2, minsize=120)  # 操作列
+        header_frame.columnconfigure(0, weight=1, minsize=30)   # 选择列
+        header_frame.columnconfigure(1, weight=1, minsize=120)   # 项目列  
+        header_frame.columnconfigure(2, weight=1, minsize=140)   # 状态列
+        header_frame.columnconfigure(3, weight=1, minsize=200)  # 分支列
+        header_frame.columnconfigure(4, weight=2, minsize=160)  # 进度列
+        header_frame.columnconfigure(5, weight=2, minsize=200)  # 操作列
         
         # 表格标题行
         headers = ["选择", "项目名称", "本地状态", "分支选择", "下载进度", "操作"]
         for i, header in enumerate(headers):
-            label = ttk.Label(header_frame, text=header, style='Header.TLabel')
+            label = ttk.Label(header_frame, text=header, style='Header.TLabel', anchor="center")
             label.grid(row=0, column=i, sticky="ew", padx=2, pady=5)
         
         # 添加分隔线
@@ -4184,10 +4271,10 @@ class DeepinProjectDownloader:
         content_frame = content_scroll.get_frame()
         content_frame.columnconfigure(0, weight=1, minsize=80)   # 选择列
         content_frame.columnconfigure(1, weight=3, minsize=200)  # 项目列
-        content_frame.columnconfigure(2, weight=2, minsize=100)  # 状态列
+        content_frame.columnconfigure(2, weight=2, minsize=180)  # 状态列
         content_frame.columnconfigure(3, weight=3, minsize=200)  # 分支列
-        content_frame.columnconfigure(4, weight=2, minsize=150)  # 进度列
-        content_frame.columnconfigure(5, weight=2, minsize=120)  # 操作列
+        content_frame.columnconfigure(4, weight=2, minsize=120)  # 进度列
+        content_frame.columnconfigure(5, weight=2, minsize=200)  # 操作列
         
         # 保存内容框架引用用于刷新
         self.project_content_frame = content_frame
@@ -6322,7 +6409,8 @@ class DeepinProjectDownloader:
             self.root.clipboard_clear()
             self.root.clipboard_append(ProjectConfig.AppInfo.EXTENSION_CONFIG_GUIDE)
             self.root.update()
-            messagebox.showinfo("成功", "扩展配置规范已复制到剪贴板")
+            self.log_message("[配置] 扩展配置规范已复制到剪贴板")
+            self.send_notification("配置规范已复制", "扩展配置规范已复制到剪贴板", "dialog-information")
 
         copy_btn = ttk.Button(ext_tab, text="复制配置规范", command=copy_extension_config, style='Primary.TButton')
         copy_btn.grid(row=1, column=0, pady=(0, 5))
@@ -6880,6 +6968,7 @@ class DeepinProjectDownloader:
                 self.root.clipboard_append(ssh_key_content)
                 self.root.update()
                 self.log_message("[SSH Key] 已复制SSH公钥到剪贴板")
+                self.send_notification("SSH公钥已复制", "SSH公钥已复制到剪贴板", "dialog-information")
                 dialog.destroy()
             
             ttk.Button(btn_frame, text="复制并关闭", command=copy_and_close, style='Success.TButton').pack(side=tk.RIGHT, padx=(5, 0))
@@ -6897,7 +6986,8 @@ class DeepinProjectDownloader:
             ssh_key_path = os.path.expanduser("~/.ssh/id_rsa.pub")
             
             if not os.path.exists(ssh_key_path):
-                messagebox.showwarning("警告", "SSH公钥文件不存在，请先生成SSH Key")
+                self.log_message("[SSH Key] SSH公钥文件不存在，请先生成SSH Key")
+                self.send_notification("复制失败", "SSH公钥文件不存在，请先生成SSH Key", "dialog-error")
                 return
             
             # 读取SSH Key内容
@@ -6910,7 +7000,7 @@ class DeepinProjectDownloader:
             self.root.update()
             
             self.log_message(f"[SSH Key] 已复制SSH公钥到剪贴板")
-            messagebox.showinfo("成功", "SSH公钥已复制到剪贴板")
+            self.send_notification("SSH公钥已复制", "SSH公钥已复制到剪贴板", "dialog-information")
             
         except Exception as e:
             self.log_message(f"[SSH Key] 复制SSH Key失败: {str(e)}")

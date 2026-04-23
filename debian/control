@@ -19,11 +19,11 @@ Depends: ${misc:Depends},
   python3-tk,
   dde-dconfig-editor,
   d-feet,
-  zenity | kdialog,
-  linglong-builder
+  zenity | kdialog
 Recommends:
   code,
-  qtcreator
+  qtcreator,
+  linglong-builder
 Breaks:
   dfm-tools-plugins (<< 1.5.6)
 Replaces:
