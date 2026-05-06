@@ -19,6 +19,7 @@ Depends: ${misc:Depends},
   python3-tk,
   dde-dconfig-editor,
   d-feet,
+  fakeroot,
   zenity | kdialog
 Recommends:
   code,
