@@ -17,6 +17,7 @@ import json
 import os
 import queue
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -2216,9 +2217,9 @@ class DeepinProjectDownloader:
         clear_log_btn = ttk.Button(log_frame, text="清空日志", command=self._log_clear, style='Danger.TButton')
         clear_log_btn.grid(row=0, column=0, sticky="se", padx=18, pady=8)
         
-        # 进度条
+        # 进度条（初始隐藏）
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate', style='Custom.Horizontal.TProgressbar')
-        self.progress.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 5))
+        # 初始不显示，加载时才显示
         
         # 状态栏
         self.status_var = tk.StringVar(value="就绪")
@@ -2849,10 +2850,10 @@ class DeepinProjectDownloader:
         except Exception as e:
             self.log_message(f"[SSH] 复制失败: {str(e)}")
             self.send_notification("复制失败", str(e), "dialog-error")
-    
+
     def copy_local_git_source(self, project_name):
         """复制本地Git仓库的克隆地址到剪贴板
-        
+
         功能：
         - 生成ssh格式的git clone命令
         - 复制到剪贴板
@@ -2863,46 +2864,46 @@ class DeepinProjectDownloader:
             # 获取当前用户名
             import getpass
             current_user = getpass.getuser()
-            
+
             # 获取项目路径
             project_path = os.path.join(self.save_path.get(), project_name)
-            
+
             # 检查项目是否存在
             if not os.path.exists(project_path):
                 self.log_message(f"[Git源] 项目目录不存在: {project_name}")
                 self.send_notification("复制失败", f"项目 {project_name} 目录不存在", "dialog-error")
                 return
-            
+
             # 检查是否是git仓库
             git_dir = os.path.join(project_path, ".git")
             if not os.path.exists(git_dir):
                 self.log_message(f"[Git源] {project_name} 不是Git仓库")
                 self.send_notification("复制失败", f"{project_name} 不是Git仓库", "dialog-error")
                 return
-            
+
             # 生成git clone命令
-            # 格式: git clone ssh://本机当前用户名@10.8.12.220/home/zhy/debug/deepin-movie-reborn
-            # 这里使用固定的IP 10.8.12.220
-            git_clone_cmd = f"git clone ssh://{current_user}@10.8.12.220{project_path}"
-            
+            # 格式: git clone ssh://本机当前用户名@本机IP/项目路径
+            local_ip = self.get_local_ip()
+            git_clone_cmd = f"git clone ssh://{current_user}@{local_ip}{project_path}"
+
             # 复制到剪贴板
             self.root.clipboard_clear()
             self.root.clipboard_append(git_clone_cmd)
             self.root.update()  # 确保剪贴板更新
-            
+
             # 打印到日志
             self.log_message(f"[Git源] 已复制本地Git源地址到剪贴板")
             self.log_message(f"[Git源] 项目: {project_name}")
             self.log_message(f"[Git源] 路径: {project_path}")
             self.log_message(f"[Git源] 命令: {git_clone_cmd}")
-            
+
             # 发送桌面通知
             self.send_notification(
                 "Git源地址已复制",
                 f"项目: {project_name}\n{git_clone_cmd}",
                 "dialog-information"
             )
-            
+
         except Exception as e:
             self.log_message(f"[Git源] 复制失败: {str(e)}")
             self.send_notification("复制失败", str(e), "dialog-error")
@@ -4309,8 +4310,6 @@ class DeepinProjectDownloader:
             open_button = ttk.Button(action_frame, text="打开", width=4, style='Primary.TButton')
             open_button.pack(side=tk.LEFT, padx=1)
             open_button.bind('<Button-1>', create_open_menu)
-            ttk.Button(action_frame, text="删除", width=4, style='Danger.TButton',
-                      command=lambda name=project_name: self.delete_project_dir(name)).pack(side=tk.LEFT, padx=1)
 
             # 创建打包按钮和菜单
             def create_package_menu(event, name=project_name):
@@ -4391,7 +4390,9 @@ class DeepinProjectDownloader:
             package_button.bind('<Button-1>', create_package_menu)
             ttk.Button(action_frame, text="复制本地git", width=10, style='Primary.TButton',
                       command=lambda name=project_name: self.copy_local_git_source(name)).pack(side=tk.LEFT, padx=1)
-            
+            ttk.Button(action_frame, text="删除", width=4, style='Danger.TButton',
+                      command=lambda name=project_name: self.delete_project_dir(name)).pack(side=tk.LEFT, padx=1)
+
             row += 1
     
     def create_project_table(self, parent):
@@ -5858,15 +5859,35 @@ class DeepinProjectDownloader:
                 self.message_queue.put(("progress", "stop"))
         
         threading.Thread(target=combined_query_task, daemon=True).start()
-    
+
     def download_selected(self):
         """下载选中的项目（多线程并行）"""
         selected_projects = [name for name, var in self.project_vars.items() if var.get()]
-        
+
         if not selected_projects:
             messagebox.showwarning("警告", "请至少选择一个项目进行下载")
             return
-        
+
+        # 检查是否有项目目录已存在
+        existing_projects = []
+        save_path = self.save_path.get()
+        for project_name in selected_projects:
+            project_path = os.path.join(save_path, project_name)
+            if os.path.exists(project_path):
+                existing_projects.append((project_name, project_path))
+
+        # 如果有已存在的项目目录，确认是否覆盖
+        if existing_projects:
+            project_list = "\n".join([f"  - {name} ({path})" for name, path in existing_projects])
+            confirm_msg = (
+                f"以下项目目录已存在，继续下载将覆盖现有内容：\n\n"
+                f"{project_list}\n\n"
+                f"是否继续下载并覆盖这些目录？"
+            )
+            result = messagebox.askyesno("确认覆盖下载", confirm_msg, icon='warning')
+            if not result:
+                return
+
         def download_all_task():
             try:
                 self.message_queue.put(("progress", "start"))
@@ -6608,9 +6629,11 @@ class DeepinProjectDownloader:
                     self.status_var.set(message[1])
                 elif message[0] == "progress":
                     if message[1] == "start":
+                        self.progress.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 5))
                         self.progress.start()
                     else:
                         self.progress.stop()
+                        self.progress.grid_forget()
                 elif message[0] == "show_progress":
                     if len(message) == 3:
                         self.show_progress(message[1], message[2])
