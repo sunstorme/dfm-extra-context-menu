@@ -284,6 +284,7 @@ class ProjectConfig:
     # 配置常量
     UPDATE_INTERVAL_DAYS = 3
     SSHFS_HISTORY_MAX_COUNT = 20
+    SSH_HISTORY_MAX_COUNT = 20
     
     # UI样式配置
     class UIStyle:
@@ -354,6 +355,7 @@ class ProjectConfig:
         """文件名配置类"""
         CACHE_LAST_UPDATE = "last_update.json"
         CACHE_SSHFS_HISTORY = "sshfs_history.json"
+        CACHE_SSH_HISTORY = "ssh_history.json"
         CONFIG_MAIN = ".deepin_project_downloader.json"
     
     # 路径配置
@@ -694,7 +696,13 @@ class DeepinProjectDownloader:
         self.sshfs_history = []  # 存储所有历史记录
         self.sshfs_history_max_count = ProjectConfig.SSHFS_HISTORY_MAX_COUNT  # 最多保存20条历史记录
         self.init_sshfs_history()
-        
+
+        # SSH历史记录
+        self.ssh_history_file = os.path.join(self.cache_dir, ProjectConfig.FileName.CACHE_SSH_HISTORY)
+        self.ssh_history = []  # 存储所有历史记录
+        self.ssh_history_max_count = ProjectConfig.SSH_HISTORY_MAX_COUNT  # 最多保存20条历史记录
+        self.init_ssh_history()
+
         # 注册程序退出时的清理函数（移除自动清理）
         # self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
@@ -932,10 +940,239 @@ class DeepinProjectDownloader:
             self.save_sshfs_history()
             
             self.log_message(f"[SSHFS历史] 已添加历史记录: {username}@{host}:{remote_path}")
-            
+
         except Exception as e:
             self.log_message(f"[SSHFS历史] 添加历史记录失败: {str(e)}")
-    
+
+    def init_ssh_history(self):
+        """初始化SSH历史记录"""
+        try:
+            if os.path.exists(self.ssh_history_file):
+                with open(self.ssh_history_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.ssh_history = data.get('ssh_history', [])
+                self.log_message(f"[SSH历史] 已加载 {len(self.ssh_history)} 条历史记录")
+            else:
+                self.ssh_history = []
+                self.log_message("[SSH历史] 历史记录文件不存在，将创建新的历史记录")
+        except Exception as e:
+            self.log_message(f"[SSH历史] 加载历史记录失败: {str(e)}")
+            self.ssh_history = []
+
+    def load_ssh_history(self):
+        """加载SSH历史记录"""
+        return self.ssh_history
+
+    def save_ssh_history(self):
+        """保存SSH历史记录到文件"""
+        try:
+            data = {
+                'ssh_history': self.ssh_history,
+                'save_time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            }
+            with open(self.ssh_history_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.log_message(f"[SSH历史] 已保存 {len(self.ssh_history)} 条历史记录")
+        except Exception as e:
+            self.log_message(f"[SSH历史] 保存历史记录失败: {str(e)}")
+
+    def add_ssh_history_entry(self, host, username, port=22):
+        """添加SSH历史记录条目"""
+        try:
+            entry = {
+                'host': host,
+                'username': username,
+                'port': port,
+                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            }
+
+            # 检查是否已存在相同的记录
+            for existing_entry in self.ssh_history:
+                if (existing_entry['host'] == host and
+                    existing_entry['username'] == username and
+                    existing_entry['port'] == port):
+                    # 如果已存在，先移除旧记录
+                    self.ssh_history.remove(existing_entry)
+                    self.log_message(f"[SSH历史] 更新历史记录: {username}@{host}:{port}")
+                    break
+            else:
+                self.log_message(f"[SSH历史] 添加历史记录: {username}@{host}:{port}")
+
+            # 将新记录插入到开头
+            self.ssh_history.insert(0, entry)
+
+            # 限制历史记录数量
+            if len(self.ssh_history) > self.ssh_history_max_count:
+                self.ssh_history = self.ssh_history[:self.ssh_history_max_count]
+
+            self.save_ssh_history()
+
+        except Exception as e:
+            self.log_message(f"[SSH历史] 添加历史记录失败: {str(e)}")
+
+    def get_latest_ssh_config(self):
+        """获取最近的SSH配置"""
+        if self.ssh_history:
+            return self.ssh_history[0]
+        return None
+
+    def refresh_ssh_history(self):
+        """刷新SSH历史记录下拉框"""
+        try:
+            history = self.load_ssh_history()
+            if history:
+                # 格式化历史记录为显示文本
+                display_list = []
+                for entry in history:
+                    port = entry.get('port', 22)
+                    if port == 22:
+                        display_text = f"{entry['username']}@{entry['host']}"
+                    else:
+                        display_text = f"{entry['username']}@{entry['host']}:{port}"
+                    display_list.append(display_text)
+                self.ssh_history_combo['values'] = display_list
+                self.ssh_history_var.set(display_list[0] if display_list else "无历史记录")
+                self.log_message(f"[SSH历史] 已刷新 {len(history)} 条历史记录")
+            else:
+                self.ssh_history_combo['values'] = []
+                self.ssh_history_var.set("无历史记录")
+        except Exception as e:
+            self.log_message(f"[SSH历史] 刷新历史记录失败: {str(e)}")
+
+    def on_ssh_history_selected(self, event):
+        """SSH历史记录选择事件"""
+        try:
+            selection = self.ssh_history_var.get()
+            if selection and selection != "无历史记录":
+                # 解析选择的记录
+                if ':' in selection:
+                    # 格式: username@host:port
+                    parts = selection.split('@')
+                    username = parts[0]
+                    host_port = parts[1]
+                    if ':' in host_port:
+                        host, port = host_port.rsplit(':', 1)
+                    else:
+                        host = host_port
+                        port = 22
+                else:
+                    # 格式: username@host
+                    parts = selection.split('@')
+                    username = parts[0]
+                    host = parts[1]
+                    port = 22
+
+                # 更新输入框
+                self.ssh_connect_host_var.set(host)
+                self.ssh_connect_port_var.set(str(port))
+                self.ssh_connect_username_var.set(username)
+
+                self.log_message(f"[SSH历史] 已选择: {selection}")
+        except Exception as e:
+            self.log_message(f"[SSH历史] 选择历史记录失败: {str(e)}")
+
+    def delete_ssh_history_entry(self):
+        """删除当前选中的SSH历史记录"""
+        try:
+            selection = self.ssh_history_var.get()
+            if not selection or selection == "无历史记录":
+                messagebox.showwarning("警告", "请先选择要删除的历史记录")
+                return
+
+            # 获取要删除的历史记录索引
+            history = self.load_ssh_history()
+            entry_info = None
+            delete_index = -1
+
+            # 查找匹配的历史记录
+            for i, entry in enumerate(history):
+                port = entry.get('port', 22)
+                if port == 22:
+                    display_text = f"{entry['username']}@{entry['host']}"
+                else:
+                    display_text = f"{entry['username']}@{entry['host']}:{port}"
+
+                if display_text == selection:
+                    entry_info = display_text
+                    delete_index = i
+                    break
+
+            if delete_index == -1:
+                messagebox.showwarning("警告", "未找到对应的历史记录")
+                return
+
+            # 确认删除
+            result = messagebox.askyesno(
+                "确认删除",
+                f"确定要删除以下历史记录吗?\n\n{entry_info}\n\n此操作不可恢复!",
+                icon='warning'
+            )
+
+            if result:
+                # 删除历史记录
+                self.ssh_history.pop(delete_index)
+                self.save_ssh_history()
+                self.refresh_ssh_history()
+                self.log_message(f"[SSH历史] 已删除历史记录: {entry_info}")
+                messagebox.showinfo("删除成功", f"历史记录 {entry_info} 已删除")
+        except Exception as e:
+            self.log_message(f"[SSH历史] 删除历史记录失败: {str(e)}")
+            messagebox.showerror("删除失败", f"删除历史记录失败: {str(e)}")
+
+    def connect_ssh(self):
+        """连接SSH服务器"""
+        try:
+            host = self.ssh_connect_host_var.get().strip()
+            port = self.ssh_connect_port_var.get().strip()
+            username = self.ssh_connect_username_var.get().strip()
+
+            # 验证输入
+            if not host:
+                messagebox.showwarning("警告", "请输入主机地址")
+                return
+            if not username:
+                messagebox.showwarning("警告", "请输入用户名")
+                return
+            if not port:
+                port = "22"
+            else:
+                try:
+                    int(port)
+                except ValueError:
+                    messagebox.showwarning("警告", "端口必须是数字")
+                    return
+
+            # 构建SSH连接命令
+            if port == "22":
+                ssh_cmd = f"ssh {username}@{host}"
+            else:
+                ssh_cmd = f"ssh -p {port} {username}@{host}"
+
+            # 使用deepin-terminal打开SSH连接
+            terminal_cmd = ["deepin-terminal", "-C", ssh_cmd]
+
+            self.log_message(f"[SSH连接] 正在连接: {ssh_cmd}")
+
+            # 启动终端
+            subprocess.Popen(terminal_cmd, start_new_session=True)
+
+            # 添加到历史记录
+            self.add_ssh_history_entry(host, username, int(port))
+
+            # 刷新历史记录下拉框
+            self.root.after(500, self.refresh_ssh_history)
+
+            self.log_message(f"[SSH连接] 已启动SSH连接: {username}@{host}:{port}")
+            self.send_notification(
+                "SSH连接已启动",
+                f"用户: {username}\n主机: {host}\n端口: {port}",
+                "dialog-information"
+            )
+
+        except Exception as e:
+            self.log_message(f"[SSH连接] 连接失败: {str(e)}")
+            messagebox.showerror("连接失败", f"SSH连接失败: {str(e)}")
+
     def get_latest_sshfs_config(self):
         """获取最近的SSHFS配置"""
         if self.sshfs_history:
@@ -1813,18 +2050,83 @@ class DeepinProjectDownloader:
         self.ssh_content_frame = ttk.Frame(ssh_container, relief="ridge", borderwidth=1)
         self.ssh_content_frame.grid(row=1, column=0, sticky="ew")  # 默认显示（展开状态）
         self.ssh_content_frame.columnconfigure(1, weight=1)
-        
+
+        # SSH连接历史记录选择(移到最上面,最常使用)
+        ttk.Label(self.ssh_content_frame, text="连接历史:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
+        self.ssh_history_var = tk.StringVar(value="无历史记录")
+        self.ssh_history_combo = ttk.Combobox(self.ssh_content_frame, textvariable=self.ssh_history_var,
+                                              state="readonly", width=40)
+        self.ssh_history_combo.grid(row=0, column=1, padx=(0, 5), pady=(5, 2), sticky="ew")
+        self.ssh_history_combo.bind('<<ComboboxSelected>>', self.on_ssh_history_selected)
+
+        # SSH连接历史按钮框架
+        ssh_history_btn_frame = ttk.Frame(self.ssh_content_frame)
+        ssh_history_btn_frame.grid(row=0, column=2, padx=(5, 10), pady=(5, 10), sticky="e")
+
+        # 刷新历史记录按钮
+        ttk.Button(ssh_history_btn_frame, text="刷新", command=self.refresh_ssh_history, style='Primary.TButton').pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+
+        # 删除历史记录按钮
+        ttk.Button(ssh_history_btn_frame, text="删除", command=self.delete_ssh_history_entry, style='Danger.TButton').pack(
+            side=tk.LEFT
+        )
+
+        # SSH连接表单（一行显示：用户名@主机地址:端口）
+        ssh_connect_form_frame = ttk.Frame(self.ssh_content_frame)
+        ssh_connect_form_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=(10, 10), pady=2)
+        ssh_connect_form_frame.columnconfigure(0, weight=1)  # 输入框区域可以扩展
+
+        # 左侧输入框区域
+        ssh_input_frame = ttk.Frame(ssh_connect_form_frame)
+        ssh_input_frame.grid(row=0, column=0, sticky="w")
+
+        # 用户名
+        ttk.Label(ssh_input_frame, text="用户名:").pack(side=tk.LEFT, padx=(0, 2))
+        self.ssh_connect_username_var = tk.StringVar(value="")
+        ssh_connect_username_entry = ttk.Entry(ssh_input_frame, textvariable=self.ssh_connect_username_var, width=15)
+        ssh_connect_username_entry.pack(side=tk.LEFT, padx=(0, 5))
+
+        # @ 符号
+        ttk.Label(ssh_input_frame, text="@").pack(side=tk.LEFT, padx=(0, 5))
+
+        # 主机地址
+        ttk.Label(ssh_input_frame, text="主机地址:").pack(side=tk.LEFT, padx=(0, 2))
+        self.ssh_connect_host_var = tk.StringVar(value="")
+        ssh_connect_host_entry = ttk.Entry(ssh_input_frame, textvariable=self.ssh_connect_host_var, width=25)
+        ssh_connect_host_entry.pack(side=tk.LEFT, padx=(0, 5))
+
+        # : 符号
+        ttk.Label(ssh_input_frame, text=":").pack(side=tk.LEFT, padx=(0, 5))
+
+        # 端口
+        ttk.Label(ssh_input_frame, text="端口:").pack(side=tk.LEFT, padx=(0, 2))
+        self.ssh_connect_port_var = tk.StringVar(value="22")
+        ssh_connect_port_entry = ttk.Entry(ssh_input_frame, textvariable=self.ssh_connect_port_var, width=8)
+        ssh_connect_port_entry.pack(side=tk.LEFT, padx=(0, 5))
+
+        # 连接SSH按钮（放在最右边）
+        ttk.Button(ssh_connect_form_frame, text="连接SSH", command=self.connect_ssh, style='Success.TButton').grid(
+            row=0, column=1, sticky="e", padx=(0, 5)
+        )
+
+        # 分隔线
+        ttk.Separator(self.ssh_content_frame, orient='horizontal').grid(
+            row=2, column=0, columnspan=3, sticky="ew", padx=(10, 10), pady=(10, 5)
+        )
+
         # SSH服务状态
-        ttk.Label(self.ssh_content_frame, text="SSH状态:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
+        ttk.Label(self.ssh_content_frame, text="SSH状态:").grid(row=3, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
         self.ssh_status_var = tk.StringVar(value="检测中...")
         ttk.Label(self.ssh_content_frame, textvariable=self.ssh_status_var, foreground="orange").grid(
-            row=0, column=1, padx=(0, 5), pady=(5, 2), sticky="w"
+            row=3, column=1, padx=(0, 5), pady=(5, 2), sticky="w"
         )
-        
+
         # SSH操作按钮
         ssh_btn_frame = ttk.Frame(self.ssh_content_frame)
-        ssh_btn_frame.grid(row=0, column=2, padx=(5, 10), pady=(5, 2), sticky="e")
-        
+        ssh_btn_frame.grid(row=3, column=2, padx=(5, 10), pady=(5, 2), sticky="e")
+
         ttk.Button(ssh_btn_frame, text="安装SSH", command=self.install_ssh_server, style='Success.TButton').pack(
             side=tk.LEFT, padx=(0, 5)
         )
@@ -1834,29 +2136,29 @@ class DeepinProjectDownloader:
         ttk.Button(ssh_btn_frame, text="检查状态", command=self.check_ssh_status, style='Primary.TButton').pack(
             side=tk.LEFT
         )
-        
+
         # SSH连接信息
-        ttk.Label(self.ssh_content_frame, text="SSH地址:").grid(row=1, column=0, padx=(10, 5), pady=2, sticky="w")
+        ttk.Label(self.ssh_content_frame, text="SSH地址:").grid(row=4, column=0, padx=(10, 5), pady=2, sticky="w")
         self.ssh_address_var = tk.StringVar(value="获取中...")
         ssh_address_entry = ttk.Entry(self.ssh_content_frame, textvariable=self.ssh_address_var, state="readonly")
-        ssh_address_entry.grid(row=1, column=1, padx=(0, 5), pady=2, sticky="ew")
-        
+        ssh_address_entry.grid(row=4, column=1, padx=(0, 5), pady=2, sticky="ew")
+
         # 复制按钮（与上下行的多按钮组右对齐）
         ttk.Button(self.ssh_content_frame, text="复制", command=self.copy_ssh_address, style='Primary.TButton').grid(
-            row=1, column=2, padx=(5, 10), pady=2, sticky="e"
+            row=4, column=2, padx=(5, 10), pady=2, sticky="e"
         )
-        
+
         # SSH Key管理区域
-        ttk.Label(self.ssh_content_frame, text="SSH Key:").grid(row=2, column=0, padx=(10, 5), pady=2, sticky="w")
+        ttk.Label(self.ssh_content_frame, text="SSH Key:").grid(row=5, column=0, padx=(10, 5), pady=2, sticky="w")
         self.ssh_key_status_var = tk.StringVar(value="检测中...")
         ttk.Label(self.ssh_content_frame, textvariable=self.ssh_key_status_var, foreground="orange").grid(
-            row=2, column=1, padx=(0, 5), pady=2, sticky="w"
+            row=5, column=1, padx=(0, 5), pady=2, sticky="w"
         )
-        
+
         # SSH Key操作按钮
         ssh_key_btn_frame = ttk.Frame(self.ssh_content_frame)
-        ssh_key_btn_frame.grid(row=2, column=2, padx=(5, 10), pady=2, sticky="e")
-        
+        ssh_key_btn_frame.grid(row=5, column=2, padx=(5, 10), pady=2, sticky="e")
+
         ttk.Button(ssh_key_btn_frame, text="查看", command=self.view_ssh_key, style='Primary.TButton').pack(
             side=tk.LEFT, padx=(0, 5)
         )
@@ -1866,12 +2168,14 @@ class DeepinProjectDownloader:
         ttk.Button(ssh_key_btn_frame, text="生成", command=self.generate_ssh_key, style='Success.TButton').pack(
             side=tk.LEFT
         )
-        
+
         # 刷新SSH信息
         self.root.after(1500, self.refresh_ssh_info)
         # 检查SSH Key状态
         self.root.after(1600, self.check_ssh_key_status)
-        
+        # 刷新SSH历史记录
+        self.root.after(1700, self.refresh_ssh_history)
+
         # SSHFS配置区域（可折叠）
         sshfs_container = ttk.Frame(config_content_frame)
         sshfs_container.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
@@ -1895,20 +2199,28 @@ class DeepinProjectDownloader:
         
         # SSHFS内容区域
         self.sshfs_content_frame = ttk.Frame(sshfs_container, relief="ridge", borderwidth=1)
-        self.sshfs_content_frame.columnconfigure(1, weight=1)
+        self.sshfs_content_frame.columnconfigure(0, weight=0)
+        self.sshfs_content_frame.columnconfigure(1, weight=3)
+        self.sshfs_content_frame.columnconfigure(2, weight=0)
         # 默认不显示内容区域（折叠状态）
         
         # SSHFS历史记录选择(移到最上面,最常使用)
-        ttk.Label(self.sshfs_content_frame, text="历史记录:").grid(row=0, column=0, padx=(10, 5), pady=(5, 2), sticky="w")
+        ttk.Label(self.sshfs_content_frame, text="历史记录:").grid(row=0, column=0, padx=(10, 5), pady=(5, 10), sticky="w")
+
+        # 历史记录输入框和按钮的容器
+        sshfs_history_container = ttk.Frame(self.sshfs_content_frame)
+        sshfs_history_container.grid(row=0, column=1, columnspan=2, sticky="ew", pady=(5, 10))
+        sshfs_history_container.columnconfigure(0, weight=1)
+
         self.sshfs_history_var = tk.StringVar(value="无历史记录")
-        self.sshfs_history_combo = ttk.Combobox(self.sshfs_content_frame, textvariable=self.sshfs_history_var,
-                                              state="readonly", width=40)
-        self.sshfs_history_combo.grid(row=0, column=1, padx=(0, 5), pady=(5, 2), sticky="ew")
+        self.sshfs_history_combo = ttk.Combobox(sshfs_history_container, textvariable=self.sshfs_history_var,
+                                              state="readonly")
+        self.sshfs_history_combo.grid(row=0, column=0, sticky="ew")
         self.sshfs_history_combo.bind('<<ComboboxSelected>>', self.on_sshfs_history_selected)
-        
+
         # 历史记录按钮框架
-        history_btn_frame = ttk.Frame(self.sshfs_content_frame)
-        history_btn_frame.grid(row=0, column=2, padx=(5, 10), pady=(5, 2), sticky="e")
+        history_btn_frame = ttk.Frame(sshfs_history_container)
+        history_btn_frame.grid(row=0, column=1, padx=(5, 10), sticky="e")
         
         # 刷新历史记录按钮
         ttk.Button(history_btn_frame, text="刷新", command=self.refresh_sshfs_history, style='Primary.TButton').pack(
@@ -3657,8 +3969,8 @@ class DeepinProjectDownloader:
                 # 生成历史记录显示文本
                 history_items = []
                 for i, entry in enumerate(history):
-                    # 格式: [时间] 用户@主机:远程路径 -> 本地路径
-                    display_text = f"[{entry['timestamp']}] "
+                    # 格式: 用户@主机:远程路径 -> 本地路径
+                    display_text = ""
                     if entry['username']:
                         display_text += f"{entry['username']}@"
                     display_text += f"{entry['host']}:{entry['remote_path']} -> {entry['local_path']}"
@@ -3714,7 +4026,7 @@ class DeepinProjectDownloader:
             
             # 获取要删除的历史记录
             entry_to_delete = self.sshfs_history[selected_index]
-            entry_info = f"{entry_to_delete['timestamp']} - "
+            entry_info = ""
             if entry_to_delete['username']:
                 entry_info += f"{entry_to_delete['username']}@"
             entry_info += f"{entry_to_delete['host']}:{entry_to_delete['remote_path']}"
@@ -4385,7 +4697,7 @@ class DeepinProjectDownloader:
                 # 绑定全局点击事件（使用 add='+' 保留现有绑定）
                 self.root.bind_all('<Button-1>', on_global_click, add='+')
 
-            package_button = ttk.Button(action_frame, text="打包", width=4, style='Success.TButton')
+            package_button = ttk.Button(action_frame, text="打包", width=4, style='Primary.TButton')
             package_button.pack(side=tk.LEFT, padx=1)
             package_button.bind('<Button-1>', create_package_menu)
             ttk.Button(action_frame, text="复制本地git", width=10, style='Primary.TButton',
