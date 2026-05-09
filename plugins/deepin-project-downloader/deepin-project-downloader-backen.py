@@ -729,6 +729,9 @@ class DeepinProjectDownloader:
         
         # 进度条字典
         self.progress_bars = {}
+
+        # 跟踪当前打开的菜单
+        self.current_menu = None
         
         # 初始化消息列表
         self.init_messages = []
@@ -4210,15 +4213,182 @@ class DeepinProjectDownloader:
             # 操作按钮
             action_frame = ttk.Frame(self.project_content_frame)
             action_frame.grid(row=row, column=5, sticky="ew", padx=5, pady=2)
-            
-            ttk.Button(action_frame, text="目录", width=4, style='Primary.TButton',
-                      command=lambda name=project_name: self.open_project_dir(name)).pack(side=tk.LEFT, padx=1)
-            ttk.Button(action_frame, text="QtCreator打开", width=12, style='Primary.TButton',
-                      command=lambda name=project_name: self.open_project_with_qtcreator(name)).pack(side=tk.LEFT, padx=1)
+
+            # 创建打开按钮和菜单
+            def create_open_menu(event, name=project_name):
+                """创建并显示打开菜单"""
+                # 如果已有菜单打开，先关闭它
+                if self.current_menu is not None:
+                    try:
+                        self.current_menu.unpost()
+                    except:
+                        pass
+                    self.current_menu = None
+
+                menu = tk.Menu(action_frame, tearoff=0)
+
+                def menu_action(action_func):
+                    """执行菜单动作并关闭菜单"""
+                    menu.unpost()
+                    self.current_menu = None
+                    # 解绑全局点击事件
+                    try:
+                        self.root.unbind_all('<Button-1>')
+                    except:
+                        pass
+                    action_func()
+
+                def on_global_click(event):
+                    """全局点击事件，点击菜单外部时关闭菜单"""
+                    # 获取点击的窗口
+                    clicked_widget = event.widget
+
+                    # 检查点击是否在菜单或按钮上
+                    menu_open = False
+                    try:
+                        # 尝试获取菜单的窗口信息
+                        if menu.tk.call('winfo', 'exists', menu):
+                            menu_open = True
+                    except:
+                        pass
+
+                    # 如果菜单已关闭，解绑事件
+                    if not menu_open:
+                        self.current_menu = None
+                        try:
+                            self.root.unbind_all('<Button-1>')
+                        except:
+                            pass
+                        return
+
+                    # 如果点击的不是菜单和按钮，关闭菜单
+                    if clicked_widget != menu and clicked_widget != open_button:
+                        try:
+                            menu.unpost()
+                        except:
+                            pass
+                        self.current_menu = None
+                        try:
+                            self.root.unbind_all('<Button-1>')
+                        except:
+                            pass
+
+                # 创建 Qt Creator 子菜单
+                qt_creator_menu = tk.Menu(menu, tearoff=0)
+                qt_creator_menu.add_command(
+                    label="CMake 工程",
+                    command=lambda: menu_action(lambda: self.open_project_qtcreator_cmake(name))
+                )
+                qt_creator_menu.add_command(
+                    label="QMake 工程",
+                    command=lambda: menu_action(lambda: self.open_project_qtcreator_qmake(name))
+                )
+
+                # 添加菜单项
+                menu.add_cascade(label="Qt Creator", menu=qt_creator_menu)
+                menu.add_command(
+                    label="VS Code",
+                    command=lambda: menu_action(lambda: self.open_project_with_vscode(name))
+                )
+                menu.add_command(
+                    label="终端",
+                    command=lambda: menu_action(lambda: self.open_project_terminal(name))
+                )
+                menu.add_command(
+                    label="文件管理器",
+                    command=lambda: menu_action(lambda: self.open_project_dir(name))
+                )
+
+                # 记录并显示菜单
+                self.current_menu = menu
+                menu.post(event.x_root, event.y_root)
+
+                # 绑定全局点击事件（使用 add='+' 保留现有绑定）
+                self.root.bind_all('<Button-1>', on_global_click, add='+')
+
+            open_button = ttk.Button(action_frame, text="打开", width=4, style='Primary.TButton')
+            open_button.pack(side=tk.LEFT, padx=1)
+            open_button.bind('<Button-1>', create_open_menu)
             ttk.Button(action_frame, text="删除", width=4, style='Danger.TButton',
                       command=lambda name=project_name: self.delete_project_dir(name)).pack(side=tk.LEFT, padx=1)
-            ttk.Button(action_frame, text="打包", width=4, style='Success.TButton',
-                      command=lambda name=project_name: self.deb_packet_generate_dir(name)).pack(side=tk.LEFT, padx=1)
+
+            # 创建打包按钮和菜单
+            def create_package_menu(event, name=project_name):
+                """创建并显示打包菜单"""
+                # 如果已有菜单打开，先关闭它
+                if self.current_menu is not None:
+                    try:
+                        self.current_menu.unpost()
+                    except:
+                        pass
+                    self.current_menu = None
+
+                menu = tk.Menu(action_frame, tearoff=0)
+
+                def menu_action(action_func):
+                    """执行菜单动作并关闭菜单"""
+                    menu.unpost()
+                    self.current_menu = None
+                    # 解绑全局点击事件
+                    try:
+                        self.root.unbind_all('<Button-1>')
+                    except:
+                        pass
+                    action_func()
+
+                def on_global_click(event):
+                    """全局点击事件，点击菜单外部时关闭菜单"""
+                    # 获取点击的窗口
+                    clicked_widget = event.widget
+
+                    # 检查菜单是否仍然打开
+                    menu_open = False
+                    try:
+                        if menu.tk.call('winfo', 'exists', menu):
+                            menu_open = True
+                    except:
+                        pass
+
+                    # 如果菜单已关闭，解绑事件
+                    if not menu_open:
+                        self.current_menu = None
+                        try:
+                            self.root.unbind_all('<Button-1>')
+                        except:
+                            pass
+                        return
+
+                    # 如果点击的不是菜单和按钮，关闭菜单
+                    if clicked_widget != menu and clicked_widget != package_button:
+                        try:
+                            menu.unpost()
+                        except:
+                            pass
+                        self.current_menu = None
+                        try:
+                            self.root.unbind_all('<Button-1>')
+                        except:
+                            pass
+
+                menu.add_command(
+                    label="DEB 格式",
+                    command=lambda: menu_action(lambda: self.deb_packet_generate_dir(name))
+                )
+                menu.add_command(
+                    label="玲珑包格式",
+                    command=lambda: menu_action(lambda: self.linglong_packet_generate_dir(name))
+                )
+
+                # 记录并显示菜单
+                self.current_menu = menu
+                menu.post(event.x_root, event.y_root)
+
+                # 绑定全局点击事件（使用 add='+' 保留现有绑定）
+                self.root.bind_all('<Button-1>', on_global_click, add='+')
+
+            package_button = ttk.Button(action_frame, text="打包", width=4, style='Success.TButton')
+            package_button.pack(side=tk.LEFT, padx=1)
+            package_button.bind('<Button-1>', create_package_menu)
             ttk.Button(action_frame, text="复制本地git", width=10, style='Primary.TButton',
                       command=lambda name=project_name: self.copy_local_git_source(name)).pack(side=tk.LEFT, padx=1)
             
@@ -5795,6 +5965,351 @@ class DeepinProjectDownloader:
                 self.log_message(f"[错误] 使用Qt Creator打开项目失败: {project_name}, 错误: {str(e)}")
         else:
             messagebox.showwarning("警告", f"项目目录不存在: {project_name}")
+
+    def open_project_with_vscode(self, project_name):
+        """使用VS Code打开项目"""
+        project_path = os.path.join(self.save_path.get(), project_name)
+        if os.path.exists(project_path):
+            try:
+                # 使用code命令打开项目目录
+                subprocess.Popen(["code", project_path])
+                self.log_message(f"已使用VS Code打开项目: {project_name}")
+            except FileNotFoundError:
+                messagebox.showerror("错误", "未找到VS Code，请确保已安装VS Code并配置PATH")
+                self.log_message(f"[错误] 未找到VS Code，无法打开项目: {project_name}")
+            except Exception as e:
+                messagebox.showerror("错误", f"打开项目时出错: {str(e)}")
+                self.log_message(f"[错误] 使用VS Code打开项目失败: {project_name}, 错误: {str(e)}")
+        else:
+            messagebox.showwarning("警告", f"项目目录不存在: {project_name}")
+
+    def open_project_terminal(self, project_name):
+        """在终端中打开项目目录"""
+        project_path = os.path.join(self.save_path.get(), project_name)
+        if os.path.exists(project_path):
+            if sys.platform == "linux":
+                # 优先使用 deepin-terminal，然后尝试其他终端
+                terminal_commands = [
+                    ("deepin-terminal", ["deepin-terminal", "-w", project_path]),
+                    ("gnome-terminal", ["gnome-terminal", "--working-directory=" + project_path]),
+                    ("xterm", ["xterm", "-e", f"cd '{project_path}' && exec bash"]),
+                    ("konsole", ["konsole", "--workdir", project_path]),
+                    ("xfce4-terminal", ["xfce4-terminal", "--working-directory=" + project_path])
+                ]
+                for cmd_name, cmd_args in terminal_commands:
+                    try:
+                        subprocess.Popen(cmd_args)
+                        self.log_message(f"已在终端中打开项目目录: {project_name}")
+                        break
+                    except FileNotFoundError:
+                        continue
+                else:
+                    messagebox.showerror("错误", "未找到可用的终端")
+                    self.log_message(f"[错误] 未找到可用的终端: {project_name}")
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", "-a", "Terminal", project_path])
+                self.log_message(f"已在终端中打开项目目录: {project_name}")
+            elif sys.platform == "win32":
+                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", "cd", "/d", project_path])
+                self.log_message(f"已在终端中打开项目目录: {project_name}")
+        else:
+            messagebox.showwarning("警告", f"项目目录不存在: {project_name}")
+
+    def open_project_qtcreator_cmake(self, project_name):
+        """使用Qt Creator以CMake工程方式打开项目"""
+        project_path = os.path.join(self.save_path.get(), project_name)
+        if os.path.exists(project_path):
+            try:
+                subprocess.Popen(["qtcreator", project_path])
+                self.log_message(f"已使用Qt Creator (CMake)打开项目: {project_name}")
+            except FileNotFoundError:
+                messagebox.showerror("错误", "未找到Qt Creator，请确保已安装Qt Creator")
+                self.log_message(f"[错误] 未找到Qt Creator，无法打开项目: {project_name}")
+            except Exception as e:
+                messagebox.showerror("错误", f"打开项目时出错: {str(e)}")
+                self.log_message(f"[错误] 使用Qt Creator (CMake)打开项目失败: {project_name}, 错误: {str(e)}")
+        else:
+            messagebox.showwarning("警告", f"项目目录不存在: {project_name}")
+
+    def open_project_qtcreator_qmake(self, project_name):
+        """使用Qt Creator以QMake工程方式打开项目"""
+        project_path = os.path.join(self.save_path.get(), project_name)
+        if os.path.exists(project_path):
+            try:
+                # 查找 .pro 文件
+                import glob as glob_module
+                pro_files = glob_module.glob(os.path.join(project_path, "*.pro"))
+
+                if not pro_files:
+                    # 如果没有找到 .pro 文件，尝试递归查找
+                    for root, dirs, files in os.walk(project_path):
+                        for file in files:
+                            if file.endswith('.pro'):
+                                pro_files.append(os.path.join(root, file))
+                                break
+                        if pro_files:
+                            break
+
+                if pro_files:
+                    # 使用第一个找到的 .pro 文件
+                    pro_file = pro_files[0]
+                    subprocess.Popen(["qtcreator", pro_file])
+                    self.log_message(f"已使用Qt Creator (QMake)打开项目: {project_name}")
+                else:
+                    messagebox.showwarning("警告", f"未找到 .pro 文件: {project_name}")
+                    self.log_message(f"[警告] 未找到 .pro 文件: {project_name}")
+            except FileNotFoundError:
+                messagebox.showerror("错误", "未找到Qt Creator，请确保已安装Qt Creator")
+                self.log_message(f"[错误] 未找到Qt Creator，无法打开项目: {project_name}")
+            except Exception as e:
+                messagebox.showerror("错误", f"打开项目时出错: {str(e)}")
+                self.log_message(f"[错误] 使用Qt Creator (QMake)打开项目失败: {project_name}, 错误: {str(e)}")
+        else:
+            messagebox.showwarning("警告", f"项目目录不存在: {project_name}")
+
+    def linglong_packet_generate_dir(self, project_name):
+        """使用ll-builder构建玲珑包并将产物移动到 packages 文件夹
+
+        功能特性:
+        - 检查 linglong.yaml 文件
+        - 执行 ll-builder build 和 export
+        - 自动移动构建产物到 packages 目录
+        - 显示构建产物信息
+        - 构建时间统计
+        """
+        project_path = os.path.join(self.save_path.get(), project_name)
+
+        def linglong_build_task():
+            if os.path.exists(project_path):
+                # 1. 启动进度条
+                self.message_queue.put(("progress", "start"))
+                self.message_queue.put(("log", "[玲珑包] [开始] 开始构建玲珑包..."))
+
+                # 2. 检查 linglong.yaml 是否存在
+                linglong_yaml = os.path.join(project_path, "linglong.yaml")
+                if not os.path.exists(linglong_yaml):
+                    self.message_queue.put(("progress", "stop"))
+                    self.message_queue.put(("log", f"[玲珑包] [错误] 未找到 linglong.yaml 文件: {linglong_yaml}"))
+                    messagebox.showerror("错误", f"未找到 linglong.yaml 文件: {linglong_yaml}")
+                    return
+
+                # 3. 检查 ll-builder 是否可用
+                try:
+                    subprocess.run(["ll-builder", "--version"], capture_output=True, check=True, timeout=5)
+                    self.message_queue.put(("log", "[玲珑包] [信息] ll-builder 检测通过"))
+                except (FileNotFoundError, subprocess.CalledProcessError) as e:
+                    self.message_queue.put(("progress", "stop"))
+                    self.message_queue.put(("log", "[玲珑包] [错误] ll-builder 命令未找到，请安装 linglong-builder 包"))
+                    messagebox.showerror("错误", "ll-builder 命令未找到，请安装 linglong-builder 包")
+                    return
+                except subprocess.TimeoutExpired:
+                    self.message_queue.put(("progress", "stop"))
+                    self.message_queue.put(("log", "[玲珑包] [错误] ll-builder 响应超时"))
+                    messagebox.showerror("错误", "ll-builder 响应超时")
+                    return
+
+                # 4. 记录构建开始时间
+                build_start_time = time.time()
+
+                # 5. 执行 ll-builder build
+                try:
+                    self.message_queue.put(("log", "[玲珑包] [构建] 执行: ll-builder build"))
+                    build_process = subprocess.Popen(
+                        ["ll-builder", "build"],
+                        cwd=project_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,
+                        universal_newlines=True
+                    )
+
+                    # 实时读取并输出构建过程
+                    while True:
+                        output = build_process.stdout.readline()
+                        if output == '' and build_process.poll() is not None:
+                            break
+                        if output:
+                            line = output.strip()
+                            if line:
+                                self.message_queue.put(("log", f"[玲珑包] {line}"))
+
+                    build_returncode = build_process.wait()
+
+                    if build_returncode != 0:
+                        self.message_queue.put(("progress", "stop"))
+                        self.message_queue.put(("log", f"[玲珑包] [失败] ll-builder build 失败，返回码: {build_returncode}"))
+                        messagebox.showerror("构建失败", f"ll-builder build 失败，返回码: {build_returncode}")
+                        return
+
+                    self.message_queue.put(("log", "[玲珑包] [成功] ll-builder build 成功"))
+
+                except Exception as e:
+                    self.message_queue.put(("progress", "stop"))
+                    self.message_queue.put(("log", f"[玲珑包] [异常] ll-builder build 出错: {str(e)}"))
+                    messagebox.showerror("构建异常", str(e))
+                    return
+
+                # 6. 执行 ll-builder export（先尝试 UAB，失败则尝试 layer）
+                export_success = False
+                export_type = ""
+
+                # 先尝试导出 UAB 文件
+                try:
+                    self.message_queue.put(("log", "[玲珑包] [导出] 执行: ll-builder export (导出 UAB)"))
+                    export_process = subprocess.Popen(
+                        ["ll-builder", "export"],
+                        cwd=project_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,
+                        universal_newlines=True
+                    )
+
+                    while True:
+                        output = export_process.stdout.readline()
+                        if output == '' and export_process.poll() is not None:
+                            break
+                        if output:
+                            line = output.strip()
+                            if line:
+                                self.message_queue.put(("log", f"[玲珑包] [导出] {line}"))
+
+                    export_returncode = export_process.wait()
+
+                    if export_returncode == 0:
+                        export_success = True
+                        export_type = "UAB"
+                        self.message_queue.put(("log", "[玲珑包] [成功] 玲珑包 UAB 导出成功"))
+                    else:
+                        self.message_queue.put(("log", "[玲珑包] [警告] UAB 导出失败，尝试导出 layer 文件"))
+                except Exception as e:
+                    self.message_queue.put(("log", f"[玲珑包] [警告] UAB 导出异常: {str(e)}，尝试导出 layer 文件"))
+
+                # 如果 UAB 导出失败，尝试导出 layer
+                if not export_success:
+                    try:
+                        self.message_queue.put(("log", "[玲珑包] [导出] 执行: ll-builder export --layer"))
+                        export_process = subprocess.Popen(
+                            ["ll-builder", "export", "--layer"],
+                            cwd=project_path,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            bufsize=1,
+                            universal_newlines=True
+                        )
+
+                        while True:
+                            output = export_process.stdout.readline()
+                            if output == '' and export_process.poll() is not None:
+                                break
+                            if output:
+                                line = output.strip()
+                                if line:
+                                    self.message_queue.put(("log", f"[玲珑包] [导出] {line}"))
+
+                        export_returncode = export_process.wait()
+
+                        if export_returncode == 0:
+                            export_success = True
+                            export_type = "Layer"
+                            self.message_queue.put(("log", "[玲珑包] [成功] 玲珑包 Layer 导出成功"))
+                        else:
+                            raise subprocess.CalledProcessError(export_returncode, ["ll-builder", "export", "--layer"])
+                    except Exception as e:
+                        self.message_queue.put(("progress", "stop"))
+                        self.message_queue.put(("log", f"[玲珑包] [失败] 玲珑包导出失败 (UAB 和 Layer 都失败): {str(e)}"))
+                        messagebox.showerror("构建失败", "玲珑包导出失败 (UAB 和 Layer 都失败)")
+                        return
+
+                # 计算构建耗时
+                build_end_time = time.time()
+                build_duration = int(build_end_time - build_start_time)
+                build_minutes = build_duration // 60
+                build_seconds = build_duration % 60
+
+                self.message_queue.put(("log", f"[玲珑包] [成功] 玲珑包构建成功! (导出格式: {export_type})"))
+                self.message_queue.put(("log", f"[玲珑包] [耗时] 构建耗时: {build_minutes}分{build_seconds}秒"))
+
+                # 7. 停止进度条
+                self.message_queue.put(("progress", "stop"))
+
+                # 8. 新建 packages 文件夹（在项目目录的上一级目录）
+                parent_dir = os.path.dirname(project_path)
+                packages_dir = os.path.join(parent_dir, "packages")
+                os.makedirs(packages_dir, exist_ok=True)
+
+                # 9. 移动构建产物到 packages 目录（.uab、.layer、.linya）
+                import glob as glob_module
+                current_time = time.time()
+                moved_count = 0
+                uab_count = 0
+                layer_count = 0
+
+                # 查找并移动 .uab 文件
+                uab_files = glob_module.glob(os.path.join(project_path, "**", "*.uab"), recursive=True)
+                for uab_file in uab_files:
+                    try:
+                        file_mtime = os.path.getmtime(uab_file)
+                        if current_time - file_mtime < 300:
+                            uab_name = os.path.basename(uab_file)
+                            shutil.move(uab_file, packages_dir)
+                            self.message_queue.put(("log", f"[玲珑包] [产物] - {uab_name} -> packages/"))
+                            moved_count += 1
+                            uab_count += 1
+                    except Exception as e:
+                        self.message_queue.put(("log", f"[玲珑包] [错误] 移动文件失败: {uab_file}，原因: {e}"))
+
+                # 查找并移动 .layer 文件
+                layer_files = glob_module.glob(os.path.join(project_path, "**", "*.layer"), recursive=True)
+                for layer_file in layer_files:
+                    try:
+                        file_mtime = os.path.getmtime(layer_file)
+                        if current_time - file_mtime < 300:
+                            layer_name = os.path.basename(layer_file)
+                            shutil.move(layer_file, packages_dir)
+                            self.message_queue.put(("log", f"[玲珑包] [产物] - {layer_name} -> packages/"))
+                            moved_count += 1
+                            layer_count += 1
+                    except Exception as e:
+                        self.message_queue.put(("log", f"[玲珑包] [错误] 移动文件失败: {layer_file}，原因: {e}"))
+
+                # 查找并移动 .linya 文件（备用格式）
+                linya_files = glob_module.glob(os.path.join(project_path, "**", "*.linya"), recursive=True)
+                for linya_file in linya_files:
+                    try:
+                        file_mtime = os.path.getmtime(linya_file)
+                        if current_time - file_mtime < 300:
+                            linya_name = os.path.basename(linya_file)
+                            shutil.move(linya_file, packages_dir)
+                            self.message_queue.put(("log", f"[玲珑包] [产物] - {linya_name} -> packages/"))
+                            moved_count += 1
+                            layer_count += 1
+                    except Exception as e:
+                        self.message_queue.put(("log", f"[玲珑包] [错误] 移动文件失败: {linya_file}，原因: {e}"))
+
+                if moved_count > 0:
+                    summary = ""
+                    if uab_count > 0 and layer_count > 0:
+                        summary = f" ({uab_count} 个 UAB, {layer_count} 个 Layer)"
+                    elif uab_count > 0:
+                        summary = f" ({uab_count} 个 UAB)"
+                    elif layer_count > 0:
+                        summary = f" ({layer_count} 个 Layer)"
+                    self.message_queue.put(("log", f"[玲珑包] [完成] 已移动 {moved_count} 个玲珑包{summary}到 packages 目录"))
+                else:
+                    self.message_queue.put(("log", "[玲珑包] [警告] 未找到 .uab、.layer 或 .linya 文件"))
+
+                # 10. 打开 packages 文件夹
+                subprocess.Popen(["xdg-open", packages_dir])
+                self.message_queue.put(("log", f"[玲珑包] [完成] 已打开 packages 目录: {packages_dir}"))
+
+            else:
+                messagebox.showwarning("警告", f"项目目录不存在: {project_name}")
+
+        threading.Thread(target=linglong_build_task, daemon=True).start()
 
     def deb_packet_generate_dir(self, project_name):
         """在目标目录打包并将产物移动到 packages 文件夹，同时通知进度条
