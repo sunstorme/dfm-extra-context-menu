@@ -21,6 +21,7 @@ Depends: ${misc:Depends},
   d-feet,
   fakeroot,
   sshfs,
+  sshpass,
   zenity | kdialog
 Recommends:
   code,
