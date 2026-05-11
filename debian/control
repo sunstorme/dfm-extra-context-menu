@@ -20,6 +20,7 @@ Depends: ${misc:Depends},
   dde-dconfig-editor,
   d-feet,
   fakeroot,
+  sshfs,
   zenity | kdialog
 Recommends:
   code,
