@@ -4540,6 +4540,9 @@ class DeepinProjectDownloader:
 
                 menu = tk.Menu(action_frame, tearoff=0)
 
+                # 创建 Qt Creator 子菜单
+                qt_creator_menu = tk.Menu(menu, tearoff=0)
+
                 def menu_action(action_func):
                     """执行菜单动作并关闭菜单"""
                     menu.unpost()
@@ -4574,8 +4577,8 @@ class DeepinProjectDownloader:
                             pass
                         return
 
-                    # 如果点击的不是菜单和按钮，关闭菜单
-                    if clicked_widget != menu and clicked_widget != open_button:
+                    # 如果点击的不是菜单、子菜单或按钮，关闭菜单
+                    if clicked_widget != menu and clicked_widget != qt_creator_menu and clicked_widget != open_button:
                         try:
                             menu.unpost()
                         except:
@@ -4586,8 +4589,7 @@ class DeepinProjectDownloader:
                         except:
                             pass
 
-                # 创建 Qt Creator 子菜单
-                qt_creator_menu = tk.Menu(menu, tearoff=0)
+                # 创建 Qt Creator 子菜单项
                 qt_creator_menu.add_command(
                     label="CMake 工程",
                     command=lambda: menu_action(lambda: self.open_project_qtcreator_cmake(name))
