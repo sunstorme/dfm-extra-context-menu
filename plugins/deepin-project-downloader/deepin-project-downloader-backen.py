@@ -2187,9 +2187,9 @@ class DeepinProjectDownloader:
         sshfs_header_frame.columnconfigure(1, weight=1)
         
         # SSHFS折叠按钮
-        self.sshfs_collapsed = tk.BooleanVar(value=True)  # 默认折叠
-        self.sshfs_toggle_btn = ttk.Button(sshfs_header_frame, text="▶", width=3, 
-                                          command=self.toggle_sshfs_section)
+        self.sshfs_collapsed = tk.BooleanVar(value=False)  # 默认展开
+        self.sshfs_toggle_btn = ttk.Button(sshfs_header_frame, text="▼", width=3,
+                                           command=self.toggle_sshfs_section)
         self.sshfs_toggle_btn.grid(row=0, column=0, padx=(5, 5), pady=5)
         
         # SSHFS标题（可更新状态）
@@ -2202,7 +2202,7 @@ class DeepinProjectDownloader:
         self.sshfs_content_frame.columnconfigure(0, weight=0)
         self.sshfs_content_frame.columnconfigure(1, weight=3)
         self.sshfs_content_frame.columnconfigure(2, weight=0)
-        # 默认不显示内容区域（折叠状态）
+        self.sshfs_content_frame.grid(row=1, column=0, sticky="ew")  # 默认显示
         
         # SSHFS历史记录选择(移到最上面,最常使用)
         ttk.Label(self.sshfs_content_frame, text="历史记录:").grid(row=0, column=0, padx=(10, 5), pady=(5, 10), sticky="w")
