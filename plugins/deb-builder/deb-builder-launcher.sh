@@ -82,6 +82,52 @@ clean_build_cache() {
     send_notification "构建缓存清理完成" "已清理: $(basename "$source_dir")" "normal"
 }
 
+# 安装构建依赖
+install_build_deps() {
+    local source_dir="$1"
+
+    # 检查 debian/control 是否存在
+    if [ ! -f "$source_dir/debian/control" ]; then
+        log "未找到 debian/control，跳过构建依赖安装"
+        return 0
+    fi
+
+    log "检查构建依赖..."
+
+    # 提取 Build-Depends 信息用于弹窗展示
+    local build_deps
+    build_deps=$(grep -A5 '^Build-Depends:' "$source_dir/debian/control" | head -10 | tr '\n' ' ' | sed 's/^[[:space:]]*//')
+
+    # 弹窗确认（超时 30 秒，默认安装）
+    # --timeout=30：弹窗显示 30 秒，超时后按默认按钮（安装）自动执行
+    local choice
+    choice=$(zenity --question \
+        --title="安装构建依赖" \
+        --text="即将安装构建依赖（Build-Depends）\n\n源码: $(basename "$source_dir")\n\n构建依赖:\n${build_deps}\n\n是否安装？" \
+        --ok-label="安装" \
+        --cancel-label="跳过" \
+        --timeout=30 \
+        --default-cancel=false \
+        --width=500 \
+        2>/dev/null && echo "yes" || echo "no")
+
+    if [ "$choice" = "yes" ]; then
+        log "执行: sudo apt build-dep $source_dir"
+        send_notification "正在安装构建依赖" "$(basename "$source_dir")" "low"
+
+        if sudo apt build-dep "$source_dir"; then
+            success "构建依赖安装完成!"
+            send_notification "构建依赖安装完成" "$(basename "$source_dir")" "normal"
+        else
+            error "构建依赖安装失败!"
+            # 安装失败不中断构建流程，用户可能已手动安装部分依赖
+            log "继续尝试构建（部分依赖可能未满足）..."
+        fi
+    else
+        log "跳过构建依赖安装"
+    fi
+}
+
 # 构建玲珑包
 build_linglong() {
     local source_dir="$1"
@@ -637,6 +683,9 @@ main() {
         
         # 执行构建命令
         log "执行: dpkg-buildpackage -us -uc -b"
+
+        # 安装构建依赖（弹窗确认，默认安装，超时 30 秒）
+        install_build_deps "$source_dir"
         log "构建选项: DEB_BUILD_OPTIONS=$DEB_BUILD_OPTIONS"
         
         # 记录构建开始时间
