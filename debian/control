@@ -9,6 +9,7 @@ Homepage: https://gitee.com/sunstom/dfm-tools.git
 Package: dfm-tools
 Architecture: all
 Depends: ${misc:Depends},
+  debconf (>= 0.5) | debconf-2.0,
   python3,
   python3-gi,
   gir1.2-ayatanaappindicator3-0.1,

@@ -1,0 +1,13 @@
+Template: dfm-tools/restart-tray
+Type: boolean
+Default: true
+Description: Restart dfm-tools tray application?
+ Dfm-tools tray application is currently running. A restart is recommended
+ to load the updated version with new features and fixes.
+ .
+ Restart the tray application now?
+Template: dfm-tools/restart-tray-note
+Type: note
+Description: Dfm-tools has been updated
+ Dfm-tools has been updated successfully. You can restart the tray
+ application from its context menu to use the new version.

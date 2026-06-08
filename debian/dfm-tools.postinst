@@ -4,6 +4,9 @@ set -e
 # DDE-Tools postinst script
 # 在安装后配置系统
 
+# 加载 debconf 模块
+. /usr/share/debconf/confmodule || true
+
 echo "配置 DDE Tools..."
 
 # 移除旧版本的独立包（如果存在）
@@ -30,10 +33,52 @@ remove_old_packages() {
     done
 }
 
+# 重启 dfm-tools 托盘进程
+restart_dfm_tools_tray() {
+    # 遍历所有活跃的桌面会话，重启各用户的 dfm-tools 托盘
+    for uid in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
+        user=$(loginctl show-session "$uid" -p User --value 2>/dev/null)
+        [ -z "$user" ] && continue
+
+        # 从用户进程的环境中提取图形会话变量
+        pid=$(pgrep -u "$user" -f "dfm-tools --tray" | head -1)
+        [ -z "$pid" ] && continue
+
+        env_file="/proc/$pid/environ"
+        [ ! -f "$env_file" ] && continue
+
+        user_display=$(tr '\0' '\n' < "$env_file" 2>/dev/null | grep '^DISPLAY=' | head -1 | cut -d= -f2-)
+        user_dbus=$(tr '\0' '\n' < "$env_file" 2>/dev/null | grep '^DBUS_SESSION_BUS_ADDRESS=' | head -1 | cut -d= -f2-)
+        user_xdg_runtime=$(tr '\0' '\n' < "$env_file" 2>/dev/null | grep '^XDG_RUNTIME_DIR=' | head -1 | cut -d= -f2-)
+
+        [ -z "$user_display" ] && continue
+
+        # 杀掉旧进程
+        pkill -u "$user" -f "dfm-tools --tray" 2>/dev/null || true
+        sleep 1
+
+        # 以用户身份在正确的桌面会话环境中重启
+        env DISPLAY="$user_display" \
+            ${user_dbus:+DBUS_SESSION_BUS_ADDRESS="$user_dbus"} \
+            ${user_xdg_runtime:+XDG_RUNTIME_DIR="$user_xdg_runtime"} \
+            su -s /bin/sh -c 'nohup dfm-tools --tray > /dev/null 2>&1 &' "$user" || true
+
+        echo "  已为用户 $user 重启 dfm-tools"
+    done
+}
+
 # 在配置前移除旧包
 case "$1" in
     configure|upgrade|abort-upgrade|abort-remove)
         remove_old_packages
+
+        # 仅在升级时询问并执行重启（新安装没有运行中的实例）
+        if [ "$1" = "configure" ] && [ -n "$2" ]; then
+            db_get dfm-tools/restart-tray || true
+            if [ "$RET" = "true" ]; then
+                restart_dfm_tools_tray
+            fi
+        fi
         ;;
 esac
 
