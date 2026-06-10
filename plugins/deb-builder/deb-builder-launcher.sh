@@ -82,6 +82,306 @@ clean_build_cache() {
     send_notification "构建缓存清理完成" "已清理: $(basename "$source_dir")" "normal"
 }
 
+# 显示清理预览（将要删除的文件列表）
+show_clean_preview() {
+    local packages_dir="$1"
+    local project_name="$2"
+    local clean_type="$3"  # ll, app, debug, dev, meta, all
+
+    local has_files=false
+
+    echo ""
+    echo "即将删除的文件："
+    echo ""
+
+    # 清理玲珑包
+    if [ "$clean_type" = "ll" ] || [ "$clean_type" = "all" ]; then
+        local ll_files=$(find "$packages_dir" -maxdepth 1 \( -name "*.uab" -o -name "*.layer" -o -name "*.linya" \) 2>/dev/null || true)
+        if [ -n "$ll_files" ]; then
+            echo -e "${RED}[玲珑包]${NC}"
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    ls -lh "$f"
+                    has_files=true
+                fi
+            done <<< "$ll_files"
+            echo ""
+        fi
+    fi
+
+    # 清理应用包
+    if [ "$clean_type" = "app" ] || [ "$clean_type" = "all" ]; then
+        local app_dir="$packages_dir/app/$project_name"
+        if [ -d "$app_dir" ]; then
+            local app_files=$(find "$app_dir" -maxdepth 1 -name "*.deb" 2>/dev/null || true)
+            if [ -n "$app_files" ]; then
+                echo -e "${RED}[应用包]${NC} ($app_dir)"
+                while IFS= read -r f; do
+                    if [ -f "$f" ]; then
+                        ls -lh "$f"
+                        has_files=true
+                    fi
+                done <<< "$app_files"
+                echo ""
+            fi
+        fi
+    fi
+
+    # 清理调试/符号包
+    if [ "$clean_type" = "debug" ] || [ "$clean_type" = "symbol" ] || [ "$clean_type" = "all" ]; then
+        local debug_dir="$packages_dir/debug/$project_name"
+        if [ -d "$debug_dir" ]; then
+            local debug_files=$(find "$debug_dir" -maxdepth 1 -name "*.deb" 2>/dev/null || true)
+            if [ -n "$debug_files" ]; then
+                echo -e "${RED}[调试/符号包]${NC} ($debug_dir)"
+                while IFS= read -r f; do
+                    if [ -f "$f" ]; then
+                        ls -lh "$f"
+                        has_files=true
+                    fi
+                done <<< "$debug_files"
+                echo ""
+            fi
+        fi
+        # 同时清理根目录下的 dbgsym 包
+        local dbgsym_files=$(find "$packages_dir" -maxdepth 2 -name "*dbgsym*.deb" 2>/dev/null || true)
+        if [ -n "$dbgsym_files" ]; then
+            echo -e "${RED}[调试/符号包 (根目录)]${NC}"
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    ls -lh "$f"
+                    has_files=true
+                fi
+            done <<< "$dbgsym_files"
+            echo ""
+        fi
+    fi
+
+    # 清理开发包
+    if [ "$clean_type" = "dev" ] || [ "$clean_type" = "all" ]; then
+        local dev_dir="$packages_dir/dev/$project_name"
+        if [ -d "$dev_dir" ]; then
+            local dev_files=$(find "$dev_dir" -maxdepth 1 -name "*.deb" 2>/dev/null || true)
+            if [ -n "$dev_files" ]; then
+                echo -e "${RED}[开发包]${NC} ($dev_dir)"
+                while IFS= read -r f; do
+                    if [ -f "$f" ]; then
+                        ls -lh "$f"
+                        has_files=true
+                    fi
+                done <<< "$dev_files"
+                echo ""
+            fi
+        fi
+        # 同时清理根目录下的 -dev 包
+        local dev_root_files=$(find "$packages_dir" -maxdepth 2 -name "*-dev_*.deb" 2>/dev/null || true)
+        if [ -n "$dev_root_files" ]; then
+            echo -e "${RED}[开发包 (根目录)]${NC}"
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    ls -lh "$f"
+                    has_files=true
+                fi
+            done <<< "$dev_root_files"
+            echo ""
+        fi
+    fi
+
+    # 清理元数据文件
+    if [ "$clean_type" = "meta" ] || [ "$clean_type" = "all" ]; then
+        local meta_files=$(find "$packages_dir" -maxdepth 1 \( -name "*.buildinfo" -o -name "*.changes" \) 2>/dev/null || true)
+        if [ -n "$meta_files" ]; then
+            echo -e "${RED}[元数据文件]${NC}"
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    ls -lh "$f"
+                    has_files=true
+                fi
+            done <<< "$meta_files"
+            echo ""
+        fi
+    fi
+
+    if [ "$has_files" = false ]; then
+        echo -e "${BLUE}[INFO]${NC} 没有找到要清理的文件"
+        return 1
+    fi
+
+    return 0
+}
+
+# 清理构建包函数
+clean_packages() {
+    local source_dir="$1"
+    local clean_type="$2"  # ll, app, debug, dev, meta, all
+    local project_name="$3"
+    local skip_confirm="$4"  # yes = 跳过确认
+
+    # 确定packages目录路径（优先 source_dir/../packages，兜底 source_dir/packages）
+    local project_parent_dir="$(cd "$source_dir/.." && pwd)"
+    local packages_dir="$project_parent_dir/packages"
+
+    if [ ! -d "$packages_dir" ]; then
+        # 兜底：尝试 source_dir/packages（适用于 packages 与项目同级的目录结构）
+        packages_dir="$source_dir/packages"
+    fi
+
+    # 检查packages目录是否存在
+    if [ ! -d "$packages_dir" ]; then
+        error "packages目录不存在: $packages_dir"
+        return 1
+    fi
+
+    # 规范化清理类型
+    if [ "$clean_type" = "ll" ]; then
+        clean_type="ll"
+    elif [ "$clean_type" = "symbol" ]; then
+        clean_type="debug"
+    fi
+
+    log "开始清理构建包..."
+    log "  类型: $clean_type"
+    log "  项目: $project_name"
+    log "  目录: $packages_dir"
+    echo ""
+
+    # 显示预览
+    if ! show_clean_preview "$packages_dir" "$project_name" "$clean_type"; then
+        return 0  # 没有文件需要清理，直接返回
+    fi
+
+    # 确认清理
+    if [ "$skip_confirm" != "yes" ] && [ "$skip_confirm" != "force" ]; then
+        echo ""
+        read -p "确认删除以上文件? (y/N): " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            log "已取消清理操作"
+            send_notification "清理取消" "用户取消清理操作" "low"
+            return 0
+        fi
+    fi
+
+    echo ""
+    log "开始清理..."
+
+    local deleted_count=0
+
+    # 清理玲珑包
+    if [ "$clean_type" = "ll" ] || [ "$clean_type" = "all" ]; then
+        local ll_files=$(find "$packages_dir" -maxdepth 1 \( -name "*.uab" -o -name "*.layer" -o -name "*.linya" \) 2>/dev/null || true)
+        if [ -n "$ll_files" ]; then
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    rm -f "$f"
+                    log "  删除: $(basename "$f")"
+                    deleted_count=$((deleted_count + 1))
+                fi
+            done <<< "$ll_files"
+        fi
+    fi
+
+    # 清理应用包
+    if [ "$clean_type" = "app" ] || [ "$clean_type" = "all" ]; then
+        local app_dir="$packages_dir/app/$project_name"
+        if [ -d "$app_dir" ]; then
+            local app_files=$(find "$app_dir" -maxdepth 1 -name "*.deb" 2>/dev/null || true)
+            if [ -n "$app_files" ]; then
+                while IFS= read -r f; do
+                    if [ -f "$f" ]; then
+                        rm -f "$f"
+                        log "  删除: $(basename "$f")"
+                        deleted_count=$((deleted_count + 1))
+                    fi
+                done <<< "$app_files"
+            fi
+        fi
+    fi
+
+    # 清理调试/符号包
+    if [ "$clean_type" = "debug" ] || [ "$clean_type" = "all" ]; then
+        local debug_dir="$packages_dir/debug/$project_name"
+        if [ -d "$debug_dir" ]; then
+            local debug_files=$(find "$debug_dir" -maxdepth 1 -name "*.deb" 2>/dev/null || true)
+            if [ -n "$debug_files" ]; then
+                while IFS= read -r f; do
+                    if [ -f "$f" ]; then
+                        rm -f "$f"
+                        log "  删除: $(basename "$f")"
+                        deleted_count=$((deleted_count + 1))
+                    fi
+                done <<< "$debug_files"
+            fi
+        fi
+        # 清理根目录下的 dbgsym 包
+        local dbgsym_files=$(find "$packages_dir" -maxdepth 2 -name "*dbgsym*.deb" 2>/dev/null || true)
+        if [ -n "$dbgsym_files" ]; then
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    rm -f "$f"
+                    log "  删除: $(basename "$f")"
+                    deleted_count=$((deleted_count + 1))
+                fi
+            done <<< "$dbgsym_files"
+        fi
+    fi
+
+    # 清理开发包
+    if [ "$clean_type" = "dev" ] || [ "$clean_type" = "all" ]; then
+        local dev_dir="$packages_dir/dev/$project_name"
+        if [ -d "$dev_dir" ]; then
+            local dev_files=$(find "$dev_dir" -maxdepth 1 -name "*.deb" 2>/dev/null || true)
+            if [ -n "$dev_files" ]; then
+                while IFS= read -r f; do
+                    if [ -f "$f" ]; then
+                        rm -f "$f"
+                        log "  删除: $(basename "$f")"
+                        deleted_count=$((deleted_count + 1))
+                    fi
+                done <<< "$dev_files"
+            fi
+        fi
+        # 清理根目录下的 -dev 包
+        local dev_root_files=$(find "$packages_dir" -maxdepth 2 -name "*-dev_*.deb" 2>/dev/null || true)
+        if [ -n "$dev_root_files" ]; then
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    rm -f "$f"
+                    log "  删除: $(basename "$f")"
+                    deleted_count=$((deleted_count + 1))
+                fi
+            done <<< "$dev_root_files"
+        fi
+    fi
+
+    # 清理元数据文件
+    if [ "$clean_type" = "meta" ] || [ "$clean_type" = "all" ]; then
+        local meta_files=$(find "$packages_dir" -maxdepth 1 \( -name "*.buildinfo" -o -name "*.changes" \) 2>/dev/null || true)
+        if [ -n "$meta_files" ]; then
+            while IFS= read -r f; do
+                if [ -f "$f" ]; then
+                    rm -f "$f"
+                    log "  删除: $(basename "$f")"
+                    deleted_count=$((deleted_count + 1))
+                fi
+            done <<< "$meta_files"
+        fi
+    fi
+
+    # 清理空的项目子目录
+    log "清理空的项目子目录..."
+    find "$packages_dir" -mindepth 2 -maxdepth 2 -type d -empty -delete 2>/dev/null || true
+
+    echo ""
+    if [ $deleted_count -gt 0 ]; then
+        success "已清理 $deleted_count 个文件"
+        send_notification "清理完成" "已清理 $deleted_count 个构建包" "normal"
+    else
+        log "没有文件被清理"
+    fi
+
+    return 0
+}
+
 # 安装构建依赖
 install_build_deps() {
     local source_dir="$1"
@@ -577,7 +877,48 @@ main() {
     local format
     local clean_after_build
     local parallel_jobs
-    
+
+    # 检查是否执行清理命令
+    if [ "${1:-}" = "clean" ]; then
+        local clean_type
+        local project_name=""
+        local skip_confirm=""
+
+        # 智能解析参数：判断第二个参数是类型还是源码目录
+        local second_arg="${2:-}"
+        case "$second_arg" in
+            ll|linglong|app|debug|symbol|dev|meta|all)
+                # 第二个参数是类型，使用当前目录作为源码目录
+                clean_type="$second_arg"
+                project_name="${3:-}"
+                skip_confirm="${4:-}"
+                ;;
+            *)
+                # 第二个参数可能是源码目录或确认选项
+                if [ -n "$second_arg" ] && [ "$second_arg" != "yes" ] && [ "$second_arg" != "force" ]; then
+                    # 这是源码目录路径
+                    cd "$second_arg"
+                    clean_type="${3:-all}"
+                    project_name="${4:-}"
+                    skip_confirm="${5:-}"
+                else
+                    # 使用当前目录，类型为 all
+                    clean_type="${2:-all}"
+                    project_name="${3:-}"
+                    skip_confirm="${4:-}"
+                fi
+                ;;
+        esac
+
+        # 如果项目名为空，使用当前目录名
+        if [ -z "$project_name" ]; then
+            project_name=$(basename "$(pwd)")
+        fi
+
+        clean_packages "." "$clean_type" "$project_name" "$skip_confirm"
+        exit $?
+    fi
+
     # 智能解析参数：如果第一个参数是格式名称，则使用当前目录
     if [ "${1:-}" = "deb" ] || [ "${1:-}" = "linglong" ] || [ "${1:-}" = "ll" ] || [ "${1:-}" = "all" ]; then
         source_dir="."
@@ -789,7 +1130,11 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     cat << EOF
 快速DEB包/玲珑包构建脚本
 
-用法: $0 [源码目录|格式] [格式] [构建后清理选项] [并行任务数]
+用法:
+    构建命令: $0 [源码目录|格式] [格式] [构建后清理选项] [并行任务数]
+    清理命令: $0 clean [类型] [项目名] [确认选项]
+
+===== 构建命令 =====
 
 参数:
     源码目录        包含debian目录或linglong.yaml的源码路径 (默认: 当前目录)
@@ -805,7 +1150,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
                     half  - 使用一半CPU核心
                     数字  - 指定具体的并行任务数
 
-示例:
+构建示例:
     $0                           # 在当前目录构建DEB包并清理，使用所有CPU核心
     $0 ll                         # 在当前目录构建玲珑包并清理（简写），使用所有CPU核心
     $0 linglong                  # 在当前目录构建玲珑包并清理，使用所有CPU核心
@@ -818,7 +1163,38 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     $0 all yes 8                 # 在当前目录构建两种包并清理，使用8个并行任务
     $0 /path/to/source ll no 4  # 在指定目录构建玲珑包但不清理（简写），使用4个并行任务
 
-功能特性:
+===== 清理命令 =====
+
+用法: $0 clean [类型] [项目名] [确认选项]
+
+参数:
+    类型            ll/app/debug/dev/meta/all (默认: all)
+                    ll/linglong - 仅清理玲珑包 (.uab, .layer, .linya)
+                    app         - 仅清理应用包 (app/<项目名>/*.deb)
+                    debug/symbol - 仅清理调试/符号包 (*dbgsym*.deb)
+                    dev         - 仅清理开发包 (*-dev_*.deb)
+                    meta        - 仅清理元数据 (.buildinfo, .changes)
+                    all         - 清理所有包类型
+    项目名          要清理的项目名称 (默认: 当前目录名)
+    确认选项        yes/force (默认: 有确认提示)
+                    yes/force - 跳过确认直接执行清理
+
+清理示例:
+    $0 clean                    # 清理当前项目所有包
+    $0 clean ll                 # 清理玲珑包
+    $0 clean app                # 清理应用包
+    $0 clean debug              # 清理调试/符号包
+    $0 clean dev                # 清理开发包
+    $0 clean meta               # 清理元数据文件
+    $0 clean all                # 清理所有包
+    $0 clean all yes            # 清理所有包，跳过确认
+    $0 clean dfm-tools          # 清理 dfm-tools 项目的所有包
+    $0 clean ll dfm-tools       # 清理 dfm-tools 项目的玲珑包
+    $0 clean app dfm-tools yes   # 清理 dfm-tools 项目的应用包，跳过确认
+
+===== 功能特性 =====
+
+构建功能:
     - 支持DEB包和玲珑包构建 (deb/linglong/ll/all，ll为linglong简写)
     - 灵活的并行构建选项 (auto/half/指定数字)
     - 自动检测CPU核心数 (使用nproc命令)
@@ -831,6 +1207,15 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     - 同时处理.deb、.buildinfo、.changes、.linya、.uab文件
     - 构建成功后自动打开当前项目的app目录
     - DEB_BUILD_OPTIONS环境变量正确设置
+
+清理功能:
+    - 支持按类型清理 (ll/app/debug/dev/meta/all)
+    - 支持按项目名清理特定项目的包
+    - 清理前显示预览（将要删除的文件列表）
+    - 交互式确认（默认需要输入 y 确认）
+    - 支持 yes/force 参数跳过确认
+    - 自动清理空的项目子目录
+    - 桌面通知提示清理状态
 
 玲珑包构建依赖:
     - linglong-builder (提供 ll-builder 命令)
