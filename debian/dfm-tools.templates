@@ -6,6 +6,7 @@ Description: Restart dfm-tools tray application?
  to load the updated version with new features and fixes.
  .
  Restart the tray application now?
+
 Template: dfm-tools/restart-tray-note
 Type: note
 Description: Dfm-tools has been updated
